@@ -1,7 +1,7 @@
 // c:\Users\joojs\Desktop\project-bolt-sb1-hmyoyfk5\project\src\pages\Profile.tsx
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Mail, Calendar, Shield } from 'lucide-react';
+import { User, LogOut, Mail, Calendar, Shield, Fingerprint, Users } from 'lucide-react';
 
 export default function Profile() {
   const { user, signOut } = useAuth();
@@ -13,6 +13,15 @@ export default function Profile() {
   };
 
   if (!user) return null;
+
+  const formatCpf = (cpf: string | undefined) => {
+    if (!cpf) return 'Não informado';
+    // Garante que estamos formatando uma string de 11 dígitos
+    const cleanedCpf = cpf.replace(/\D/g, '');
+    if (cleanedCpf.length !== 11) return cpf; // Retorna o original ou limpo se não tiver 11 dígitos
+    return cleanedCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -57,6 +66,22 @@ export default function Profile() {
                   <span className="text-sm font-medium text-gray-500">Email</span>
                 </div>
                 <p className="text-gray-900 font-medium ml-8">{user.email}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
+                <div className="flex items-center space-x-3 mb-2">
+                  <Fingerprint className="h-5 w-5 text-blue-500" />
+                  <span className="text-sm font-medium text-gray-500">CPF</span>
+                </div>
+                <p className="text-gray-900 font-medium ml-8">{formatCpf(user.user_metadata.cpf)}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
+                <div className="flex items-center space-x-3 mb-2">
+                  <Users className="h-5 w-5 text-blue-500" />
+                  <span className="text-sm font-medium text-gray-500">Sexo</span>
+                </div>
+                <p className="text-gray-900 font-medium ml-8">{user.user_metadata.sexo || 'Não informado'}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">

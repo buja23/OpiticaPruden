@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, AlertCircle, Mail, Lock, ArrowRight, User, LogIn, CheckCircle } from 'lucide-react';
+import { UserPlus, AlertCircle, Mail, Lock, ArrowRight, User, LogIn, CheckCircle, Fingerprint, Users } from 'lucide-react';
 import PasswordStrengthMeter from '../components/PasswordStrengthMeter';
 
 export default function Register() {
@@ -9,6 +9,8 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [sexo, setSexo] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -25,7 +27,37 @@ export default function Register() {
       setLoading(false);
       return;
     }
-    
+
+    // Função para validar o CPF (algoritmo de verificação)
+    const isValidCpf = (cpfToValidate: string) => {
+      const cpf = cpfToValidate.replace(/[^\d]+/g, '');
+      if (cpf.length !== 11 || /^(.)\1+$/.test(cpf)) return false;
+      let sum = 0;
+      let remainder;
+      for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+      remainder = (sum * 10) % 11;
+      if (remainder === 10 || remainder === 11) remainder = 0;
+      if (remainder !== parseInt(cpf.substring(9, 10))) return false;
+      sum = 0;
+      for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+      remainder = (sum * 10) % 11;
+      if (remainder === 10 || remainder === 11) remainder = 0;
+      if (remainder !== parseInt(cpf.substring(10, 11))) return false;
+      return true;
+    };
+
+    if (!isValidCpf(cpf)) {
+      setErrorMsg('O CPF inserido é inválido. Por favor, verifique.');
+      setLoading(false);
+      return;
+    }
+
+    if (!sexo) {
+      setErrorMsg('Por favor, selecione uma opção para o campo Sexo.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -33,6 +65,11 @@ export default function Register() {
         options: {
           data: {
             full_name: name,
+            // A validação de titularidade do CPF (se pertence à pessoa)
+            // requer integração com serviços externos via backend.
+            // Aqui, salvamos o CPF após a validação de formato.
+            cpf: cpf.replace(/[^\d]+/g, ''), // Salva apenas os números
+            sexo: sexo,
           },
         },
       });
@@ -54,6 +91,18 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Aplica a máscara de CPF: XXX.XXX.XXX-XX
+    const formattedCpf = value
+      .replace(/\D/g, '') // Remove todos os caracteres não numéricos
+      .replace(/(\d{3})(\d)/, '$1.$2') // Adiciona ponto após o 3º dígito
+      .replace(/(\d{3})(\d)/, '$1.$2') // Adiciona ponto após o 6º dígito
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2') // Adiciona hífen antes dos últimos 2 dígitos
+      .substring(0, 14); // Limita o tamanho
+    setCpf(formattedCpf);
   };
   
   if (success) {
@@ -146,6 +195,44 @@ export default function Register() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">CPF</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Fingerprint className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    className="block w-full pl-10 pr-3 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white outline-none"
+                    placeholder="000.000.000-00"
+                    value={cpf}
+                    onChange={handleCpfChange}
+                    maxLength={14}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Sexo</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Users className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                  </div>
+                  <select
+                    required
+                    className="block w-full pl-10 pr-3 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all bg-gray-50 focus:bg-white outline-none appearance-none"
+                    value={sexo}
+                    onChange={(e) => setSexo(e.target.value)}
+                  >
+                    <option value="" disabled>Selecione...</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Feminino">Feminino</option>
+                    <option value="Neutro">Neutro</option>
+                  </select>
                 </div>
               </div>
 
