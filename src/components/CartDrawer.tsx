@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react';
 import { X, ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
+import { supabase } from '../lib/supabase';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -8,9 +11,46 @@ interface CartDrawerProps {
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { cartItems, removeFromCart, cartTotal } = useStore();
+  const [preferenceId, setPreferenceId] = useState<string | null>(null);
 
-  const handleCheckout = () => {
-    alert('Redirecting to Mercado Pago...');
+  // Inicializa o SDK do Mercado Pago com a chave pública
+  useEffect(() => {
+    const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
+    if (publicKey) {
+      initMercadoPago(publicKey, { locale: 'pt-BR' });
+    } else {
+      console.error('VITE_MERCADOPAGO_PUBLIC_KEY não definida no .env');
+    }
+  }, []);
+
+  const createPreference = async () => {
+    if (cartItems.length === 0) {
+      console.error("Carrinho vazio, não é possível criar preferência.");
+      return null;
+    }
+
+    try {
+      // Invoca a Edge Function segura do Supabase, passando os itens do carrinho
+      const { data, error } = await supabase.functions.invoke('create-preference', {
+        body: {
+          items: cartItems.map(item => ({
+            id: item.id.toString(),
+            title: item.name,
+            description: item.description,
+            picture_url: item.images[0] || '',
+            quantity: item.quantity,
+            unit_price: item.priceSale,
+          }))
+        }
+      });
+
+      if (error) throw error;
+
+      return data.id;
+    } catch (error) {
+      console.error('Erro ao invocar a função create-preference:', error);
+      return null;
+    }
   };
 
   const formatCurrency = (value: number) =>
@@ -81,19 +121,23 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         </div>
 
         {cartItems.length > 0 && (
-          <div className="border-t border-gray-200 p-6 bg-gray-50">
+          <div className="border-t border-gray-200 p-6 bg-gray-50 space-y-4">
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg font-semibold text-gray-700">Total:</span>
               <span className="text-3xl font-bold text-slate-900">
                 {formatCurrency(cartTotal)}
               </span>
             </div>
-            <button
-              onClick={handleCheckout}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
-            >
-              Finalizar Compra
-            </button>
+            {preferenceId ? (
+              <Wallet initialization={{ preferenceId: preferenceId }} customization={{ texts: { valueProp: 'smart_option' } }} />
+            ) : (
+              <button
+                onClick={async () => setPreferenceId(await createPreference())}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+              >
+                Finalizar Compra
+              </button>
+            )}
           </div>
         )}
       </div>

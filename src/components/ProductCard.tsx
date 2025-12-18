@@ -9,9 +9,11 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const { addToCart } = useStore();
-  const discountPercentage = Math.round(
-    ((product.priceOriginal - product.priceSale) / product.priceOriginal) * 100
-  );
+  // Cálculo seguro para evitar divisão por zero.
+  const discountPercentage =
+    product.priceOriginal > 0
+      ? Math.round(((product.priceOriginal - product.priceSale) / product.priceOriginal) * 100)
+      : 0;
 
   const formatCurrency = (value: number) =>
     `R$${value.toFixed(2).replace('.', ',')}`;
@@ -31,11 +33,18 @@ export default function ProductCard({ product }: ProductCardProps) {
       className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden"
     >
       <div className="relative overflow-hidden aspect-square">
-        <img
-          src={product.images[0]}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-        />
+        {/* Acesso seguro à imagem para evitar erros se não houver imagens */}
+        {product.images && product.images.length > 0 ? (
+          <img
+            src={product.images[0]}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
+            Sem imagem
+          </div>
+        )}
         {/* Botão de Adicionar Rápido - aparece no hover */}
         {product.stock > 0 && (
           <button
