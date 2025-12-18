@@ -20,16 +20,6 @@ export interface Product {
   priceOriginal: number;
 }
 
-export interface CartItem {
-  productId: number;
-  quantity: number;
-}
-
-// Combina o tipo Product com a quantidade, para uso na UI
-export type CartProduct = Product & {
-  quantity: number;
-};
-
 export interface FilterState {
   searchText: string;
   priceRange: { min: number; max: number };
@@ -42,11 +32,8 @@ interface StoreContextType {
   allProducts: Product[];
   isLoading: boolean;
   addToCart: (productId: number) => void;
-  removeFromCart: (productId: number) => void;
   updateStock: (productId: number, newStock: number) => void;
   cartItemCount: number;
-  cartItems: CartProduct[];
-  cartTotal: number;
   filters: FilterState;
   updateFilters: (newFilters: Partial<FilterState>) => void;
   priceBounds: { min: number; max: number };
@@ -63,7 +50,7 @@ interface StoreProviderProps {
 export function StoreProvider({ children }: StoreProviderProps) {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<number[]>([]);
   const [filters, setFilters] = useState<FilterState>({
     searchText: '',
     priceRange: { min: 0, max: Infinity },
@@ -156,41 +143,10 @@ export function StoreProvider({ children }: StoreProviderProps) {
     return filtered;
   }, [allProducts, filters]);
 
-  // Deriva a lista de produtos no carrinho (com detalhes completos) a partir do estado do carrinho.
-  const cartItems: CartProduct[] = useMemo(() => {
-    return cart
-      .map((cartItem) => {
-        const product = allProducts.find((p) => p.id === cartItem.productId);
-        if (product) {
-          return { ...product, quantity: cartItem.quantity };
-        }
-        return null;
-      })
-      .filter((item): item is CartProduct => item !== null);
-  }, [cart, allProducts]);
-
-  // Adiciona um produto ao carrinho ou incrementa sua quantidade.
+  // Funções de exemplo
   const addToCart = (productId: number) => {
-    setCart((currentCart) => {
-      const existingItem = currentCart.find(
-        (item) => item.productId === productId
-      );
-      if (existingItem) {
-        return currentCart.map((item) =>
-          item.productId === productId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...currentCart, { productId, quantity: 1 }];
-    });
-  };
-
-  // Remove um produto completamente do carrinho.
-  const removeFromCart = (productId: number) => {
-    setCart((currentCart) =>
-      currentCart.filter((item) => item.productId !== productId)
-    );
+    setCart((prevCart) => [...prevCart, productId]);
+    console.log(`Produto ${productId} adicionado ao carrinho. Total: ${cart.length + 1}`);
   };
 
   const updateStock = async (productId: number, newStock: number) => {
@@ -214,18 +170,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
     };
   }, [allProducts]);
 
-  // Calcula o número total de itens no carrinho (somando as quantidades).
-  const cartItemCount = useMemo(() => {
-    return cart.reduce((total, item) => total + item.quantity, 0);
-  }, [cart]);
-
-  // Calcula o valor total do carrinho.
-  const cartTotal = useMemo(() => {
-    return cartItems.reduce(
-      (total, item) => total + item.priceSale * item.quantity,
-      0
-    );
-  }, [cartItems]);
+  const cartItemCount = cart.length;
 
   const value = {
     products, // Lista já filtrada e ordenada para a UI
@@ -233,10 +178,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
     isLoading,
     addToCart,
     updateStock,
-    removeFromCart,
     cartItemCount,
-    cartItems,
-    cartTotal,
     filters,
     updateFilters,
     priceBounds,

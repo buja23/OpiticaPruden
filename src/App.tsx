@@ -1,7 +1,4 @@
-import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import CartDrawer from './components/CartDrawer';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import ProductDetails from './pages/ProductDetails';
 import AdminDashboard from './pages/AdminDashboard';
@@ -9,8 +6,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import UpdatePassword from './pages/UpdatePassword';
-import { StoreProvider } from './context/StoreContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
+import ProtectedLayout from './components/ProtectedLayout';
 
 // Componente para proteger rotas privadas
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -43,29 +40,23 @@ function PublicRoute({ children }: { children: JSX.Element }) {
 }
 
 function App() {
-  const [isCartOpen, setIsCartOpen] = useState(false);
-
   return (
-    <AuthProvider>
-      <StoreProvider>
-        <BrowserRouter>
-          <div className="min-h-screen bg-gray-100">
-            <Routes>
-              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-              
-              {/* Rotas Protegidas */}
-              <Route path="/" element={<ProtectedRoute><><Navbar onCartClick={() => setIsCartOpen(true)} /><Home /></></ProtectedRoute>} />
-              <Route path="/product/:id" element={<ProtectedRoute><><Navbar onCartClick={() => setIsCartOpen(true)} /><ProductDetails /></></ProtectedRoute>} />
-              <Route path="/admin/inventory" element={<ProtectedRoute><><Navbar onCartClick={() => setIsCartOpen(true)} /><AdminDashboard /></></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><><Navbar onCartClick={() => setIsCartOpen(true)} /><Profile /></></ProtectedRoute>} />
-              <Route path="/update-password" element={<ProtectedRoute><UpdatePassword /></ProtectedRoute>} />
-            </Routes>
-            <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
-          </div>
-        </BrowserRouter>
-      </StoreProvider>
-    </AuthProvider>
+    <div className="min-h-screen bg-gray-100">
+      <Routes>
+        {/* Rotas Públicas */}
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        
+        {/* Rotas Protegidas com Layout Compartilhado */}
+        <Route element={<ProtectedRoute><ProtectedLayout /></ProtectedRoute>}>
+          <Route path="/" element={<Home />} />
+          <Route path="/product/:id" element={<ProductDetails />} />
+          <Route path="/admin/inventory" element={<AdminDashboard />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/update-password" element={<UpdatePassword />} />
+        </Route>
+      </Routes>
+    </div>
   );
 }
 

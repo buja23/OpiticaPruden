@@ -3,7 +3,7 @@ import { Lock, Plus, TrendingUp, AlertTriangle, Package } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function AdminDashboard() {
-  const { products, updateStock } = useStore();
+  const { products, updateStock, isLoading } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
 
@@ -20,7 +20,7 @@ export default function AdminDashboard() {
 
   const lowStockCount = products.filter((p) => p.stock < 3).length;
   const totalValue = products.reduce(
-    (sum, p) => sum + p.price * p.stock,
+    (sum, p) => sum + p.priceSale * p.stock,
     0
   );
 
@@ -58,6 +58,14 @@ export default function AdminDashboard() {
             Prototype: Any password will work
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-900">
+        Loading Dashboard...
       </div>
     );
   }
@@ -137,7 +145,7 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
                           <img
-                            src={product.image_urls[0]}
+                            src={product.images[0]}
                             alt={product.name}
                             className="w-12 h-12 rounded-lg object-cover"
                           />
@@ -148,7 +156,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-lg font-bold text-red-500">
-                          ${product.price.toFixed(2)}
+                          ${product.priceSale.toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4">

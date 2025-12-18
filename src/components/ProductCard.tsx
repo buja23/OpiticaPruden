@@ -1,6 +1,6 @@
 import { ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Product } from '../data';
+import { Product } from '../context/StoreContext';
 import { useStore } from '../context/StoreContext';
 
 interface ProductCardProps {
@@ -13,8 +13,13 @@ export default function ProductCard({ product }: ProductCardProps) {
     ((product.priceOriginal - product.priceSale) / product.priceOriginal) * 100
   );
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const formatCurrency = (value: number) =>
+    `R$${value.toFixed(2).replace('.', ',')}`;
+
+  // Handler para o botão de "Adicionar ao Carrinho", que previne a navegação da tag Link pai.
+  const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault(); // Previne a navegação do Link
+    e.stopPropagation(); // Para a propagação do evento
     if (product.stock > 0) {
       addToCart(product.id);
     }
@@ -23,7 +28,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       to={`/product/${product.id}`}
-      className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
+      className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden"
     >
       <div className="relative overflow-hidden aspect-square">
         <img
@@ -31,53 +36,54 @@ export default function ProductCard({ product }: ProductCardProps) {
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
+        {/* Botão de Adicionar Rápido - aparece no hover */}
+        {product.stock > 0 && (
+          <button
+            onClick={handleAddToCart}
+            aria-label="Adicionar ao carrinho"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm text-slate-900 rounded-full h-12 w-12 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:scale-110 focus:opacity-100"
+          >
+            <ShoppingCart className="h-6 w-6" />
+          </button>
+        )}
         {discountPercentage > 0 && (
           <div className="absolute top-3 right-3 bg-red-500 text-white font-bold px-3 py-1 rounded-full text-sm shadow-lg">
             -{discountPercentage}%
           </div>
         )}
-        {product.stock < 5 && product.stock > 0 && (
-          <div className="absolute top-3 left-3 bg-orange-500 text-white font-semibold px-3 py-1 rounded-full text-xs">
-            Only {product.stock} left!
-          </div>
-        )}
         {product.stock === 0 && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="bg-gray-800 text-white font-bold px-4 py-2 rounded-lg">
-              Out of Stock
+            <span className="bg-gray-800 text-white font-bold px-4 py-2 rounded-lg text-center">
+              Esgotado
             </span>
           </div>
         )}
       </div>
 
-      <div className="p-5">
-        <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition">
+      <div className="p-4 flex flex-col flex-grow">
+        <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">
           {product.name}
         </h3>
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
+        <p className="text-gray-500 text-sm mb-4 line-clamp-2">{product.description}</p>
 
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex flex-col">
-            <span className="text-gray-400 text-sm line-through">
-              ${product.priceOriginal}
+        {/* Seção de preço alinhada na parte inferior */}
+        <div className="mt-auto pt-4 border-t border-gray-100">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-slate-900">
+              {formatCurrency(product.priceSale)}
             </span>
-            <span className="text-3xl font-bold text-red-500">
-              ${product.priceSale}
-            </span>
+            {discountPercentage > 0 && (
+              <span className="text-gray-400 text-md line-through">
+                {formatCurrency(product.priceOriginal)}
+              </span>
+            )}
           </div>
-          <div className="text-right text-sm text-gray-500">
-            Save ${product.priceOriginal - product.priceSale}
-          </div>
+          {discountPercentage > 0 && (
+            <div className="text-sm font-semibold text-green-600 mt-1">
+              Você economiza {formatCurrency(product.priceOriginal - product.priceSale)}!
+            </div>
+          )}
         </div>
-
-        <button
-          onClick={handleAddToCart}
-          disabled={product.stock === 0}
-          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center space-x-2 transition-all transform hover:scale-105"
-        >
-          <ShoppingCart className="h-5 w-5" />
-          <span>{product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
-        </button>
       </div>
     </Link>
   );

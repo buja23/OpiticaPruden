@@ -1,21 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ShoppingCart, ArrowLeft, Package } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function ProductDetails() {
   const { id } = useParams<{ id: string }>();
-  const { products, addToCart } = useStore();
-  const product = products.find((p) => p.id === Number(id));
+  const { allProducts, addToCart, isLoading } = useStore(); // Usar allProducts garante que o produto seja encontrado independente dos filtros.
   const [selectedImage, setSelectedImage] = useState(0);
+  const product = allProducts.find((p) => p.id === Number(id));
+
+  // Reseta a imagem selecionada quando o ID do produto muda.
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-slate-900">
+        Carregando Produto...
+      </div>
+    );
+  }
 
   if (!product) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Product Not Found</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Produto Não Encontrado</h2>
           <Link to="/" className="text-blue-500 hover:text-blue-600">
-            Return to Home
+            Voltar para o Início
           </Link>
         </div>
       </div>
@@ -30,22 +43,30 @@ export default function ProductDetails() {
           className="inline-flex items-center space-x-2 text-gray-600 hover:text-blue-600 mb-8 transition"
         >
           <ArrowLeft className="h-5 w-5" />
-          <span>Back to Products</span>
+          <span>Voltar para os Produtos</span>
         </Link>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
             <div className="space-y-4">
               <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-                <img
-                  src={product.image_urls[selectedImage]}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
+                {/* Acesso seguro à imagem para evitar erros se não houver imagens */}
+                {product.images && product.images.length > 0 ? (
+                  <img
+                    src={product.images[selectedImage]}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
+                    Sem imagem
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                {product.image_urls.map((image, index) => (
+              {product.images && product.images.length > 1 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                  {product.images.map((image, index) => (
                   <button
                     key={index}
                     onClick={() => setSelectedImage(index)}
@@ -61,8 +82,9 @@ export default function ProductDetails() {
                       className="w-full h-full object-cover"
                     />
                   </button>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -77,9 +99,14 @@ export default function ProductDetails() {
 
               <div className="bg-gray-50 rounded-xl p-6 space-y-4">
                 <div className="flex items-baseline space-x-3">
-                  <span className="text-5xl font-bold text-red-500">
-                    ${product.price.toFixed(2)}
+                  <span className="text-5xl font-bold text-slate-900">
+                    R${product.priceSale.toFixed(2).replace('.', ',')}
                   </span>
+                  {product.priceOriginal > product.priceSale && (
+                    <span className="text-2xl font-medium text-gray-400 line-through">
+                      R${product.priceOriginal.toFixed(2).replace('.', ',')}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -91,15 +118,15 @@ export default function ProductDetails() {
                       <span className="text-gray-700 font-medium">
                         {product.stock < 5 ? (
                           <span className="text-orange-600 font-bold">
-                            Only {product.stock} units left!
+                            Apenas {product.stock} unidades restantes!
                           </span>
                         ) : (
-                          <span className="text-green-600">In Stock</span>
+                          <span className="text-green-600">Em Estoque</span>
                         )}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-red-600 font-bold">Out of Stock</span>
+                    <span className="text-red-600 font-bold">Fora de Estoque</span>
                   )}
                 </div>
               </div>
@@ -110,17 +137,17 @@ export default function ProductDetails() {
                 className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-5 px-8 rounded-xl flex items-center justify-center space-x-3 transition-all transform hover:scale-105 shadow-xl text-lg"
               >
                 <ShoppingCart className="h-6 w-6" />
-                <span>{product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
+                <span>{product.stock === 0 ? 'Fora de Estoque' : 'Adicionar ao Carrinho'}</span>
               </button>
 
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 space-y-2">
-                <h3 className="font-bold text-slate-900">Why Choose VisionBlue?</h3>
+                <h3 className="font-bold text-slate-900">Por que escolher a VisionBlue?</h3>
                 <ul className="space-y-2 text-sm text-gray-700">
-                  <li>✓ Premium quality materials</li>
-                  <li>✓ 1-year warranty included</li>
-                  <li>✓ Free shipping on all orders</li>
-                  <li>✓ UV400 protection</li>
-                  <li>✓ 30-day return policy</li>
+                  <li>✓ Materiais de qualidade premium</li>
+                  <li>✓ 1 ano de garantia incluído</li>
+                  <li>✓ Frete grátis para todos os pedidos</li>
+                  <li>✓ Proteção UV400</li>
+                  <li>✓ Política de devolução de 30 dias</li>
                 </ul>
               </div>
             </div>

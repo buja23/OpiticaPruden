@@ -1,0 +1,13 @@
+[
+  {
+    "name": "Exclusivo",
+    "price": 249.00,
+    "images": [ "https://byjzncycxjuxjmrebftf.supabase.co/storage/v1/object/public/product-images/107.jpg",
+          "https://byjzncycxjuxjmrebftf.supabase.co/storage/v1/object/public/product-images/108.jpg",
+          "https://byjzncycxjuxjmrebftf.supabase.co/storage/v1/object/public/product-images/109.jpg"
+        ],
+    "stock": 1
+  }
+
+  
+]

@@ -8,9 +8,8 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onCartClick }: NavbarProps) {
-  const { getCartItemCount } = useStore();
+  const { cartItemCount } = useStore();
   const { user } = useAuth();
-  const cartCount = getCartItemCount();
 
   return (
     <nav className="bg-slate-900 text-white sticky top-0 z-50 shadow-lg">
@@ -47,9 +46,9 @@ export default function Navbar({ onCartClick }: NavbarProps) {
               className="relative flex items-center space-x-2 hover:text-blue-400 transition"
             >
               <ShoppingCart className="h-6 w-6" />
-              {cartCount > 0 && (
+              {cartItemCount > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                  {cartCount}
+                  {cartItemCount}
                 </span>
               )}
             </button>
