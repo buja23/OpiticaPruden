@@ -12,6 +12,8 @@ interface CartDrawerProps {
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { cartItems, removeFromCart, cartTotal } = useStore();
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Inicializa o SDK do Mercado Pago com a chave pública
   useEffect(() => {
@@ -23,33 +25,53 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     }
   }, []);
 
-  const createPreference = async () => {
-    if (cartItems.length === 0) {
-      console.error("Carrinho vazio, não é possível criar preferência.");
-      return null;
-    }
+  // Reseta a preferência de pagamento se o carrinho for alterado.
+  // Isso garante que o usuário sempre pague o valor correto.
+  useEffect(() => {
+    setPreferenceId(null);
+  }, [cartItems]);
 
+  // Lida com a criação da preferência de pagamento e atualiza os estados de UI.
+  const handleCheckout = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
+      if (cartItems.length === 0) {
+        throw new Error("O carrinho está vazio.");
+      }
+
       // Invoca a Edge Function segura do Supabase, passando os itens do carrinho
       const { data, error } = await supabase.functions.invoke('create-preference', {
         body: {
           items: cartItems.map(item => ({
             id: item.id.toString(),
             title: item.name,
-            description: item.description,
+            description: item.description || 'Produto sem descrição',
             picture_url: item.images[0] || '',
             quantity: item.quantity,
             unit_price: item.priceSale,
           }))
         }
       });
-
+      
       if (error) throw error;
-
-      return data.id;
-    } catch (error) {
-      console.error('Erro ao invocar a função create-preference:', error);
-      return null;
+      if (!data?.id) throw new Error("Não foi possível obter o ID de pagamento.");
+      
+      setPreferenceId(data.id);
+    } catch (err) {
+      let displayError = 'Não foi possível iniciar o pagamento. Tente novamente.';
+      console.error('Erro detalhado ao criar preferência de pagamento:', err);
+      
+      // Tenta extrair a mensagem de erro detalhada vinda da Edge Function.
+      if (err && typeof err === 'object' && 'context' in err) {
+        const context = err.context as any;
+        if (context && context.json && context.json.details) {
+          displayError = `Erro do servidor: ${context.json.details}`;
+        }
+      }
+      setError(displayError);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -131,12 +153,16 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             {preferenceId ? (
               <Wallet initialization={{ preferenceId: preferenceId }} customization={{ texts: { valueProp: 'smart_option' } }} />
             ) : (
-              <button
-                onClick={async () => setPreferenceId(await createPreference())}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
-              >
-                Finalizar Compra
-              </button>
+              <>
+                <button
+                  onClick={handleCheckout}
+                  disabled={isLoading}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Processando...' : 'Finalizar Compra'}
+                </button>
+                {error && <p className="text-red-500 text-sm mt-2 text-center">{error}</p>}
+              </>
             )}
           </div>
         )}

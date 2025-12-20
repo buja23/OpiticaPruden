@@ -8,6 +8,8 @@ import Profile from './pages/Profile';
 import UpdatePassword from './pages/UpdatePassword';
 import { useAuth } from './context/AuthContext';
 import ProtectedLayout from './components/ProtectedLayout';
+import SuccessPage from './pages/SuccessPage';
+import FailurePage from './pages/FailurePage';
 
 // Componente para proteger rotas privadas
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -43,14 +45,22 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100">
       <Routes>
-        {/* Rotas Públicas */}
+        {/* Rotas de Autenticação (só para usuários não logados) */}
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-        
-        {/* Rotas Protegidas com Layout Compartilhado */}
-        <Route element={<ProtectedRoute><ProtectedLayout /></ProtectedRoute>}>
+
+        {/* Rotas Públicas Principais com Layout */}
+        <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/product/:id" element={<ProductDetails />} />
+        </Route>
+
+        {/* Rotas de Retorno de Pagamento (públicas) */}
+        <Route path="/success" element={<SuccessPage />} />
+        <Route path="/failure" element={<FailurePage />} />
+        
+        {/* Rotas Protegidas que exigem login */}
+        <Route element={<ProtectedRoute><ProtectedLayout /></ProtectedRoute>}>
           <Route path="/admin/inventory" element={<AdminDashboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/update-password" element={<UpdatePassword />} />

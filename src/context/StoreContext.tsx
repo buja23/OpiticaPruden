@@ -43,6 +43,7 @@ interface StoreContextType {
   isLoading: boolean;
   addToCart: (productId: number) => void;
   removeFromCart: (productId: number) => void;
+  clearCart: () => void;
   updateStock: (productId: number, newStock: number) => void;
   cartItemCount: number;
   cartItems: CartProduct[];
@@ -193,6 +194,11 @@ export function StoreProvider({ children }: StoreProviderProps) {
     );
   };
 
+  // Limpa todos os itens do carrinho.
+  const clearCart = () => {
+    setCart([]);
+  };
+
   const updateStock = async (productId: number, newStock: number) => {
     setAllProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, stock: newStock } : p)));
     const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', productId);
@@ -234,6 +240,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
     addToCart,
     updateStock,
     removeFromCart,
+    clearCart,
     cartItemCount,
     cartItems,
     cartTotal,
