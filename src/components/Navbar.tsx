@@ -12,12 +12,12 @@ export default function Navbar({ onCartClick }: NavbarProps) {
   const { user } = useAuth();
 
   return (
-    <nav className="bg-slate-900 text-white sticky top-0 z-50 shadow-lg">
+    <nav className="bg-blue-950/95 backdrop-blur-md text-white sticky top-0 z-50 shadow-lg border-b border-blue-900/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <Link to="/" className="flex items-center space-x-2 hover:opacity-80 transition">
-            <Glasses className="h-8 w-8 text-blue-500" />
-            <span className="text-2xl font-bold">VisionBlue</span>
+            <Glasses className="h-8 w-8 text-blue-400" />
+            <span className="text-2xl font-bold">PrudenVision</span>
           </Link>
 
           <div className="flex items-center space-x-6">
@@ -36,7 +36,7 @@ export default function Navbar({ onCartClick }: NavbarProps) {
               >
                 <User className="h-5 w-5" />
                 <span className="hidden sm:inline font-medium">
-                  {user.user_metadata.full_name?.split(' ')[0] || 'Perfil'}
+                  {user.user_metadata?.full_name?.split(' ')[0] || 'Perfil'}
                 </span>
               </Link>
             )}

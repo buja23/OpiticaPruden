@@ -70,7 +70,7 @@ export default function ProductFilters() {
             <input
               type="text"
               id="search"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow"
               placeholder="Óculos de sol..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
@@ -81,7 +81,7 @@ export default function ProductFilters() {
         {/* Filtro de Preço */}
         <div className="md:col-span-1">
           <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-            Preço Máximo: <span className="font-bold text-slate-800">R${sliderPrice.toFixed(0)}</span>
+            Preço Máximo: <span className="font-bold text-blue-900">R${sliderPrice.toFixed(0)}</span>
           </label>
           <input
             type="range"
@@ -90,7 +90,7 @@ export default function ProductFilters() {
             max={priceBounds.max}
             value={sliderPrice}
             onChange={(e) => setSliderPrice(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
           />
         </div>
 
@@ -104,7 +104,7 @@ export default function ProductFilters() {
             name="sort"
             value={filters.sortBy}
             onChange={handleSortChange}
-            className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow"
           >
             <option value="newest">Mais Recentes</option>
             <option value="price-asc">Preço: Menor para Maior</option>
