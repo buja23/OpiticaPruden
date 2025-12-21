@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { X, ShoppingBag, Trash2 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
@@ -14,6 +14,14 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Memoiza as configurações do Mercado Pago para evitar que o componente seja recriado (pisque) em cada renderização
+  const initialization = useMemo(() => ({ preferenceId: preferenceId! }), [preferenceId]);
+  const customization = useMemo(() => ({ texts: { valueProp: 'smart_option' } }), []);
+
+  // Callbacks memoizados para evitar re-renderizações desnecessárias do iframe
+  const handleOnReady = useCallback(() => console.log('Carteira do Mercado Pago carregada e pronta.'), []);
+  const handleOnError = useCallback((error: any) => console.error('Erro interno no componente Wallet:', error), []);
 
   // Inicializa o SDK do Mercado Pago com a chave pública
   useEffect(() => {
@@ -151,7 +159,13 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               </span>
             </div>
             {preferenceId ? (
-              <Wallet initialization={{ preferenceId: preferenceId }} customization={{ texts: { valueProp: 'smart_option' } }} />
+              <Wallet 
+                key={preferenceId} // Força o componente a recarregar completamente se o ID mudar
+                initialization={initialization} 
+                customization={customization}
+                onReady={handleOnReady}
+                onError={handleOnError}
+              />
             ) : (
               <>
                 <button

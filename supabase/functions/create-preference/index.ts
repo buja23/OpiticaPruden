@@ -95,6 +95,9 @@ serve(async (req: Request) => {
         failure: `${origin}/failure`,
       },
       auto_return: 'approved',
+      payment_methods: {
+        installments: 12
+      },
     };
 
     console.log('Payload da preferência a ser enviado:', JSON.stringify(preferencePayload, null, 2));
