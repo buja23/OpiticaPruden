@@ -10,13 +10,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 serve(async (req) => {
   try {
-    const url = new URL(req.url);
-    // O Mercado Pago envia o ID e o tópico na query string ou no corpo
-    // Ex: ?id=12345&topic=payment
-    const topic = url.searchParams.get('topic') || url.searchParams.get('type');
-    const id = url.searchParams.get('id') || url.searchParams.get('data.id');
+    // O Mercado Pago envia os dados no CORPO (Body) da requisição como JSON
+    const body = await req.json();
+    
+    // Extrai o ID e o tipo do corpo. Estrutura típica: { type: 'payment', data: { id: '...' } }
+    const topic = body.type || body.topic;
+    const id = body.data?.id || body.id;
 
-    console.log(`Webhook recebido: Tópico=${topic}, ID=${id}`);
+    console.log(`Webhook recebido: Tópico=${topic}, ID=${id}`, JSON.stringify(body));
 
     if (topic === 'payment' && id) {
       // 1. Buscar detalhes do pagamento no Mercado Pago

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Package, Truck, FileText, ChevronDown, ChevronUp, Save, Lock, MapPin, Calendar, DollarSign } from 'lucide-react';
+import { Package, Truck, FileText, ChevronDown, ChevronUp, Save, Lock, MapPin, Calendar, DollarSign, Copy, CheckCircle } from 'lucide-react';
 
 interface OrderItem {
   id: number;
@@ -98,9 +98,27 @@ export default function AdminSales() {
     }
   };
 
-  const handleEmitInvoice = (order: Order) => {
-    console.log('Enviando dados para emissão de NF:', order);
-    alert(`Nota Fiscal solicitada para o Pedido #${order.id}. (Simulação)`);
+  const handleCopyOrderData = (order: Order) => {
+    if (!order.addresses) return;
+
+    const textToCopy = `
+DADOS DO CLIENTE:
+Endereço: ${order.addresses.street}, ${order.addresses.number} - ${order.addresses.neighborhood}
+Cidade/UF: ${order.addresses.city} / ${order.addresses.state}
+CEP: ${order.addresses.zip_code}
+Complemento: ${order.addresses.complement || 'N/A'}
+
+ITENS DO PEDIDO #${order.id}:
+${order.order_items.map(item => `- ${item.products?.name || 'Produto'} (Qtd: ${item.quantity}) - R$ ${item.unit_price.toFixed(2)}`).join('\n')}
+
+TOTAL: R$ ${order.total_amount.toFixed(2)}
+    `.trim();
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      alert('Dados copiados para a área de transferência! Agora cole no seu emissor de notas.');
+    }).catch(err => {
+      console.error('Erro ao copiar:', err);
+    });
   };
 
   const toggleExpand = (order: Order) => {
@@ -256,12 +274,12 @@ export default function AdminSales() {
                         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                           <h4 className="font-bold text-gray-800 mb-4 flex items-center"><FileText className="h-4 w-4 mr-2" /> Documentação</h4>
                           <button 
-                            onClick={() => handleEmitInvoice(order)}
+                            onClick={() => handleCopyOrderData(order)}
                             className="w-full border border-blue-600 text-blue-600 hover:bg-blue-50 font-bold py-2 rounded-md text-sm flex items-center justify-center"
                           >
-                            <FileText className="h-4 w-4 mr-2" /> Emitir Nota Fiscal
+                            <Copy className="h-4 w-4 mr-2" /> Copiar Dados para NF
                           </button>
-                          <p className="text-xs text-gray-400 mt-2 text-center">Integração com ERP necessária para emissão real.</p>
+                          <p className="text-xs text-gray-400 mt-2 text-center">Copia os dados para colar no emissor (Bling/Tiny/Sebrae).</p>
                         </div>
                       </div>
 

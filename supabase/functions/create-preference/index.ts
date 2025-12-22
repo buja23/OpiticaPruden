@@ -9,7 +9,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5174', // Adicionando a porta que você está usando para desenvolvimento
-  // 'https://seusite.com' // Exemplo para produção
+  // ADICIONE AQUI O DOMÍNIO DA SUA LOJA EM PRODUÇÃO:
+  // 'https://sua-loja-otica.vercel.app',
 ];
 
 // Cabeçalhos CORS para as respostas

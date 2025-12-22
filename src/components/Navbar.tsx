@@ -1,4 +1,4 @@
-import { ShoppingCart, Glasses, Lock, User } from 'lucide-react';
+import { ShoppingCart, Glasses, Lock, User, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,8 @@ export default function Navbar({ onCartClick }: NavbarProps) {
   const { cartItemCount } = useStore();
   const { user } = useAuth();
 
+  const isAdmin = user?.user_metadata?.role === 'admin';
+
   return (
     <nav className="bg-blue-950/95 backdrop-blur-md text-white sticky top-0 z-50 shadow-lg border-b border-blue-900/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,13 +23,25 @@ export default function Navbar({ onCartClick }: NavbarProps) {
           </Link>
 
           <div className="flex items-center space-x-6">
-            <Link
-              to="/admin/inventory"
-              className="flex items-center space-x-1 text-sm hover:text-blue-400 transition"
-            >
-              <Lock className="h-4 w-4" />
-              <span className="hidden sm:inline">Admin</span>
-            </Link>
+            {isAdmin && (
+              <>
+                <Link
+                  to="/admin/inventory"
+                  className="flex items-center space-x-1 text-sm hover:text-blue-400 transition"
+                >
+                  <Lock className="h-4 w-4" />
+                  <span className="hidden sm:inline">Inventário</span>
+                </Link>
+
+                <Link
+                  to="/admin/sales"
+                  className="flex items-center space-x-1 text-sm hover:text-blue-400 transition"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  <span className="hidden sm:inline">Vendas</span>
+                </Link>
+              </>
+            )}
 
             {user && (
               <Link
