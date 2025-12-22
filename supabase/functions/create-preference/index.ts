@@ -73,7 +73,7 @@ serve(async (req: Request) => {
   try {
     console.log('Iniciando o bloco try...catch para processar o pagamento.');
     
-    const { items } = await req.json();
+    const { items, metadata } = await req.json();
     console.log('Corpo da requisição (items) extraído com sucesso.');
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -98,6 +98,7 @@ serve(async (req: Request) => {
       payment_methods: {
         installments: 12
       },
+      metadata: metadata || {}
     };
 
     console.log('Payload da preferência a ser enviado:', JSON.stringify(preferencePayload, null, 2));

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import ProductDetails from './pages/ProductDetails';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminSales from './pages/AdminSales';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
@@ -41,6 +42,21 @@ function PublicRoute({ children }: { children: JSX.Element }) {
   return children;
 }
 
+// Componente para proteger rotas de Admin
+function AdminRoute({ children }: { children: JSX.Element }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  }
+
+  if (!user || user.user_metadata?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <div className="min-h-screen bg-gray-100">
@@ -61,9 +77,14 @@ function App() {
         
         {/* Rotas Protegidas que exigem login */}
         <Route element={<ProtectedRoute><ProtectedLayout /></ProtectedRoute>}>
-          <Route path="/admin/inventory" element={<AdminDashboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/update-password" element={<UpdatePassword />} />
+        </Route>
+
+        {/* Rotas de Admin */}
+        <Route element={<AdminRoute><ProtectedLayout /></AdminRoute>}>
+          <Route path="/admin/inventory" element={<AdminDashboard />} />
+          <Route path="/admin/sales" element={<AdminSales />} />
         </Route>
       </Routes>
     </div>
