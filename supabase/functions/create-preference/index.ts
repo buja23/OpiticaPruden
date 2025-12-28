@@ -31,7 +31,7 @@ serve(async (req) => {
         address_id_in: metadata.address_id,
         // Passamos apenas ID e quantidade para a RPC, que buscará o preço no DB
         items_in: items.map((item: any) => ({
-          id: item.id,
+          id: parseInt(item.id, 10), // CONVERTE o ID de texto para número
           quantity: item.quantity
         }))
       });
