@@ -121,7 +121,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             description: item.description || 'Produto sem descrição',
             picture_url: item.images[0] || '',
             quantity: item.quantity,
-            unit_price: item.priceSale,
+            unit_price: item.price,
           })),
           metadata: {
             user_id: user.id,
@@ -202,7 +202,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                       Quantidade: {item.quantity}
                     </p>
                     <p className="text-lg font-bold text-slate-800">
-                      {formatCurrency(item.priceSale * item.quantity)}
+                      {formatCurrency(item.price * item.quantity)}
                     </p>
                   </div>
                   <button

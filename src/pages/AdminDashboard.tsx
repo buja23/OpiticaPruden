@@ -14,7 +14,7 @@ export default function AdminDashboard() {
 
   const lowStockCount = products.filter((p) => p.stock < 3).length;
   const totalValue = products.reduce(
-    (sum, p) => sum + p.priceSale * p.stock,
+    (sum, p) => sum + p.price * p.stock,
     0
   );
 
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-lg font-bold text-slate-700">
-                          R$ {product.priceSale.toFixed(2).replace('.', ',')}
+                          R$ {product.price.toFixed(2).replace('.', ',')}
                         </span>
                       </td>
                       <td className="px-6 py-4">
