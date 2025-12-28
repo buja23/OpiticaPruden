@@ -125,7 +125,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           })),
           metadata: {
             user_id: user.id,
-            address_id: parseInt(selectedAddressId) // Garante que seja número se seu banco espera int8
+            address_id: selectedAddressId // Passa o ID do endereço como texto (UUID)
           }
         }
       });
