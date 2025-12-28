@@ -11,6 +11,7 @@ import { useAuth } from './context/AuthContext';
 import ProtectedLayout from './components/ProtectedLayout';
 import SuccessPage from './pages/SuccessPage';
 import FailurePage from './pages/FailurePage';
+import AuthNotificationPage from './pages/AuthNotificationPage';
 
 // Componente para proteger rotas privadas
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -64,6 +65,7 @@ function App() {
         {/* Rotas de Autenticação (só para usuários não logados) */}
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/auth-notification" element={<AuthNotificationPage />} />
 
         {/* Rotas Públicas Principais com Layout */}
         <Route element={<ProtectedLayout />}>

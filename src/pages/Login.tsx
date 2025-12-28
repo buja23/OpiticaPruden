@@ -8,8 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);  
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -50,7 +49,13 @@ export default function Login() {
       });
 
       if (error) throw error;
-      setResetSuccess(true);
+      
+      navigate('/auth-notification', {
+        state: {
+          title: 'Link de Recuperação Enviado',
+          message: `Enviamos um link para redefinição de senha para o seu e-mail (${email}). Por favor, verifique sua caixa de entrada (e spam).`
+        }
+      });
     } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao enviar email de recuperação');
     } finally {
@@ -105,26 +110,7 @@ export default function Login() {
             </p>
           </div>
 
-          {resetSuccess ? (
-            <div className="text-center space-y-6 animate-fade-in">
-              <div className="bg-green-50 text-green-700 p-6 rounded-xl flex flex-col items-center gap-4 border border-green-100">
-                <CheckCircle size={48} className="text-green-500" />
-                <div>
-                  <h3 className="font-bold text-lg">Email Enviado!</h3>
-                  <p className="text-sm mt-2">Verifique sua caixa de entrada (e spam) para redefinir sua senha.</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setIsResetting(false);
-                  setResetSuccess(false);
-                }}
-                className="text-blue-600 hover:text-blue-700 font-medium flex items-center justify-center gap-2 mx-auto"
-              >
-                <ArrowLeft size={20} /> Voltar para o Login
-              </button>
-            </div>
-          ) : (
+          
           <form className="space-y-6" onSubmit={isResetting ? handleResetPassword : handleLogin}>
             {errorMsg && (
               <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-r text-sm flex items-start gap-3 animate-fade-in">
@@ -215,7 +201,7 @@ export default function Login() {
               </>
             )}
           </form>
-          )}
+          
         </div>
       </div>
     </div>

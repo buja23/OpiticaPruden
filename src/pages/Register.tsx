@@ -10,17 +10,15 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [cpf, setCpf] = useState('');
-  const [sexo, setSexo] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [sexo, setSexo] = useState('');  
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setLoading(true);    
     setErrorMsg(null);
-    setSuccess(false);
 
     if (password !== confirmPassword) {
       setErrorMsg('As senhas não coincidem.');
@@ -76,16 +74,13 @@ export default function Register() {
 
       if (error) throw error;
       
-      // Por padrão, o Supabase envia um e-mail de confirmação.
-      // Verificamos se um objeto de usuário é retornado, mas a sessão é nula,
-      // o que indica que o usuário precisa confirmar seu e-mail.
-      if (data.user && !data.session) {
-        setSuccess(true);
-      } else {
-        // Este caso pode acontecer se a confirmação automática estiver ativada ou se for um login social.
-        // Por enquanto, apenas navegamos para o login como um fallback.
-        navigate('/login');
-      }
+      // Redireciona para a página de notificação para o usuário confirmar o e-mail.
+      navigate('/auth-notification', {
+        state: {
+          title: 'Confirmação Necessária',
+          message: `Enviamos um link de confirmação para o seu e-mail (${email}). Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta.`
+        }
+      });
     } catch (error: any) {
       setErrorMsg(error.message || 'Erro ao criar conta');
     } finally {
@@ -104,20 +99,6 @@ export default function Register() {
       .substring(0, 14); // Limita o tamanho
     setCpf(formattedCpf);
   };
-  
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white p-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg text-center animate-fade-in">
-          <CheckCircle className="mx-auto h-16 w-16 text-green-500" />
-          <h2 className="mt-6 text-2xl font-bold text-gray-900">Confirme seu e-mail</h2>
-          <p className="mt-4 text-gray-600">
-            Enviamos um link de confirmação para <strong>{email}</strong>. Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta.
-          </p>
-        </div>
-      </div>
-    );
-  }
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white p-4">
