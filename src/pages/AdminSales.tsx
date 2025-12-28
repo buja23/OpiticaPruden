@@ -72,23 +72,35 @@ export default function AdminSales() {
 
   const handleUpdateOrder = async (orderId: number) => {
     setUpdatingId(orderId);
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          status: tempStatus,
-          tracking_code: tempTracking
-        })
-        .eq('id', orderId);
 
+    // Se o status for alterado para 'cancelled', usa a RPC para garantir a devolução do estoque
+    if (tempStatus === 'cancelled') {
+      try {
+        const { error: rpcError } = await supabase.rpc('cancel_order_and_restock', { order_id_in: orderId });
+        if (rpcError) throw rpcError;
+        await fetchOrders(); // Recarrega os pedidos para refletir o status atualizado
+        alert('Pedido cancelado e estoque devolvido com sucesso!');
+      } catch (error) {
+        console.error('Erro ao cancelar pedido via RPC:', error);
+        alert('Erro ao cancelar pedido.');
+      } finally {
+        setUpdatingId(null);
+      }
+      return;
+    }
+
+    // Lógica para outras atualizações de status e código de rastreio
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ status: tempStatus, tracking_code: tempTracking })
+        .eq('id', orderId)
+        .select()
+        .single();
+      
       if (error) throw error;
       
-      // Atualiza a lista localmente
-      setOrders(orders.map(o => 
-        o.id === orderId 
-          ? { ...o, status: tempStatus, tracking_code: tempTracking }
-          : o
-      ));
+      setOrders(orders.map(o => (o.id === orderId ? data : o)));
       alert('Pedido atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar:', error);

@@ -15,6 +15,7 @@ export default function SuccessPage() {
 
   const paymentId = searchParams.get('payment_id');
   const status = searchParams.get('status');
+  const orderId = searchParams.get('external_reference');
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-center p-4">
@@ -25,17 +26,25 @@ export default function SuccessPage() {
           Obrigado pela sua compra! Seu pedido foi recebido e está sendo processado.
         </p>
         {paymentId && (
-          <div className="bg-gray-100 text-sm text-gray-700 rounded-lg p-4 mb-6">
+          <div className="bg-gray-100 text-sm text-gray-700 rounded-lg p-4 mb-8 space-y-1">
             <p><strong>ID do Pagamento:</strong> {paymentId}</p>
-            <p><strong>Status:</strong> {status}</p>
+            {orderId && <p><strong>ID do Pedido:</strong> #{orderId}</p>}
           </div>
         )}
-        <Link
-          to="/"
-          className="inline-block bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition-all transform hover:scale-105 shadow-md"
-        >
-          Voltar para a Loja
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Link
+            to="/"
+            className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-lg transition-all"
+          >
+            Voltar para a Loja
+          </Link>
+          <Link
+            to="/profile?tab=orders"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-all"
+          >
+            Ver Meus Pedidos
+          </Link>
+        </div>
       </div>
     </div>
   );

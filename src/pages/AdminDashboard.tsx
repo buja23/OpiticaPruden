@@ -1,11 +1,15 @@
-import { Plus, TrendingUp, AlertTriangle, Package } from 'lucide-react';
+import { Plus, Minus, TrendingUp, AlertTriangle, Package } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function AdminDashboard() {
   const { products, updateStock, isLoading } = useStore();
 
-  const handleAddStock = (productId: number, currentStock: number) => {
-    updateStock(productId, currentStock + 1);
+  const handleUpdateStock = (productId: number, amount: number) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+    // Impede que o estoque fique negativo
+    if (product.stock + amount < 0) return;
+    updateStock(productId, product.stock + amount);
   };
 
   const lowStockCount = products.filter((p) => p.stock < 3).length;
@@ -129,15 +133,23 @@ export default function AdminDashboard() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() =>
-                            handleAddStock(product.id, product.stock)
-                          }
-                          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center space-x-1 transition text-sm"
-                        >
-                          <Plus className="h-4 w-4" />
-                          <span>Adicionar</span>
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleUpdateStock(product.id, 1)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold p-2 rounded-lg flex items-center transition"
+                            title="Adicionar 1 ao estoque"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleUpdateStock(product.id, -1)}
+                            className="bg-red-500 hover:bg-red-600 text-white font-semibold p-2 rounded-lg flex items-center transition disabled:bg-gray-400"
+                            disabled={product.stock <= 0}
+                            title="Remover 1 do estoque"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

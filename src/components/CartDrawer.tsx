@@ -125,7 +125,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           })),
           metadata: {
             user_id: user.id,
-            address_id: selectedAddressId
+            address_id: parseInt(selectedAddressId) // Garante que seja número se seu banco espera int8
           }
         }
       });
@@ -135,14 +135,13 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       
       setPreferenceId(data.id);
     } catch (err) {
-      let displayError = 'Não foi possível iniciar o pagamento. Tente novamente.';
       console.error('Erro detalhado ao criar preferência de pagamento:', err);
-      
-      // Tenta extrair a mensagem de erro detalhada vinda da Edge Function.
-      if (err && typeof err === 'object' && 'context' in err) {
-        const context = err.context as any;
-        if (context && context.json && context.json.details) {
-          displayError = `Erro do servidor: ${context.json.details}`;
+      let displayError = 'Não foi possível iniciar o pagamento. Tente novamente.';
+      if (err instanceof Error) {
+        if (err.message.includes('Estoque insuficiente')) {
+          displayError = 'Ops! Um item no seu carrinho ficou sem estoque. Por favor, revise seu carrinho.';
+        } else {
+          displayError = err.message;
         }
       }
       setError(displayError);

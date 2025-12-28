@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { User, LogOut, Mail, Calendar, Shield, Fingerprint, Users, Package, MapPin, Plus, Trash2, Loader2 } from 'lucide-react';
 
@@ -21,12 +21,21 @@ interface Order {
   total_amount: number;
   created_at: string;
   mercado_pago_payment_id: string;
+  order_items: {
+    quantity: number;
+    unit_price: number;
+    products: {
+      name: string;
+      images: string[];
+    } | null;
+  }[];
 }
 
 export default function Profile() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'addresses'>('info');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'addresses'>(searchParams.get('tab') as any || 'info');
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +71,7 @@ export default function Profile() {
       const { data: addressData } = await supabase
         .from('addresses')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
       if (addressData) setAddresses(addressData);
@@ -69,7 +79,17 @@ export default function Profile() {
       // Buscar pedidos
       const { data: orderData } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          id, status, total_amount, created_at, mercado_pago_payment_id,
+          order_items (
+            quantity,
+            unit_price,
+            products (
+              name, images
+            )
+          )
+        `)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (orderData) setOrders(orderData);
@@ -221,15 +241,30 @@ export default function Profile() {
                       <div className="text-center py-12 text-gray-500"><Package className="h-12 w-12 mx-auto mb-3 opacity-50" /><p>Você ainda não fez nenhum pedido.</p></div>
                     ) : (
                       orders.map((order) => (
-                        <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-                          <div className="flex justify-between items-start mb-2">
+                        <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start mb-4">
                             <div>
                               <span className="text-sm text-gray-500">Pedido #{order.id}</span>
                               <p className="font-bold text-lg">R$ {order.total_amount.toFixed(2).replace('.', ',')}</p>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{statusMap[order.status] || order.status}</span>
                           </div>
-                          <p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString('pt-BR')} às {new Date(order.created_at).toLocaleTimeString('pt-BR')}</p>
+                          <div className="space-y-3 border-t border-gray-100 pt-3">
+                            {order.order_items.map((item, index) => (
+                              <div key={index} className="flex items-center space-x-3 text-sm">
+                                <img src={item.products?.images[0]} alt={item.products?.name} className="w-10 h-10 rounded-md object-cover bg-gray-100" />
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-800">{item.products?.name || 'Produto indisponível'}</p>
+                                  <p className="text-gray-500">{item.quantity} x R$ {item.unit_price.toFixed(2).replace('.', ',')}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="border-t border-gray-100 mt-3 pt-2">
+                            <p className="text-xs text-gray-400 text-right">
+                              {new Date(order.created_at).toLocaleDateString('pt-BR')} às {new Date(order.created_at).toLocaleTimeString('pt-BR')}
+                            </p>
+                          </div>
                         </div>
                       ))
                     )}

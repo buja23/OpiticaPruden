@@ -1,97 +1,63 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const accessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
 
-// Cliente Supabase com permissões de admin (Service Role) para poder escrever nas tabelas
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
 serve(async (req) => {
+  if (req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
+  }
+
   try {
-    // O Mercado Pago envia os dados no CORPO (Body) da requisição como JSON
-    const body = await req.json();
-    
-    // Extrai o ID e o tipo do corpo. Estrutura típica: { type: 'payment', data: { id: '...' } }
-    const topic = body.type || body.topic;
-    const id = body.data?.id || body.id;
+    const notification = await req.json();
+    console.log('Webhook do Mercado Pago recebido:', notification);
 
-    console.log(`Webhook recebido: Tópico=${topic}, ID=${id}`, JSON.stringify(body));
+    if (notification.type === 'payment' && notification.data?.id) {
+      const paymentId = notification.data.id;
+      console.log(`Processando notificação para o pagamento ID: ${paymentId}`);
 
-    if (topic === 'payment' && id) {
-      // 1. Buscar detalhes do pagamento no Mercado Pago
-      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
+      // Busca os detalhes do pagamento na API do Mercado Pago
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${mpAccessToken}`,
         },
       });
 
       if (!mpResponse.ok) {
-        throw new Error('Falha ao buscar dados do pagamento no Mercado Pago');
+        throw new Error(`Erro ao buscar dados do pagamento no MP: ${mpResponse.statusText}`);
       }
 
-      const paymentData = await mpResponse.json();
-      console.log('Status do pagamento:', paymentData.status);
+      const payment = await mpResponse.json();
+      const orderId = payment.external_reference;
+      const paymentStatus = payment.status; // ex: "approved", "rejected"
 
-      // 2. Se o pagamento foi aprovado, salvar no banco
-      if (paymentData.status === 'approved') {
-        const metadata = paymentData.metadata;
-        
-        // Verifica se já existe esse pedido para evitar duplicidade
-        const { data: existingOrder } = await supabase
+      if (!orderId) {
+        throw new Error(`ID do pedido (external_reference) não encontrado no pagamento ${paymentId}`);
+      }
+
+      if (paymentStatus === 'approved') {
+        console.log(`Atualizando pedido #${orderId} para o status: ${paymentStatus}`);
+        // Apenas atualiza o status e adiciona o ID do pagamento do MP
+        const { error } = await supabase
           .from('orders')
-          .select('id')
-          .eq('mercado_pago_payment_id', id)
-          .single();
-
-        if (existingOrder) {
-          console.log('Pedido já registrado anteriormente.');
-          return new Response(JSON.stringify({ message: 'Already processed' }), { status: 200 });
-        }
-
-        // Inserir Pedido
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            user_id: metadata.user_id, // Vem do metadata que configuramos no create-preference
-            address_id: metadata.address_id,
-            status: 'approved',
-            total_amount: paymentData.transaction_amount,
-            mercado_pago_payment_id: id
-          })
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        console.log('Pedido criado com sucesso:', order.id);
-
-        // Inserir Itens do Pedido
-        // O Mercado Pago retorna os itens em `additional_info.items`
-        const items = paymentData.additional_info?.items || [];
-        
-        if (items.length > 0) {
-          const orderItems = items.map((item: any) => ({
-            order_id: order.id,
-            product_id: parseInt(item.id), // Assumindo que o ID do produto foi passado como string
-            quantity: parseInt(item.quantity),
-            unit_price: parseFloat(item.unit_price)
-          }));
-
-          const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItems);
-
-          if (itemsError) throw itemsError;
-          console.log('Itens do pedido salvos com sucesso.');
-        }
+          .update({ status: paymentStatus, mercado_pago_payment_id: paymentId.toString() })
+          .eq('id', parseInt(orderId));
+        if (error) throw new Error(`Erro ao ATUALIZAR o pedido #${orderId}: ${error.message}`);
+      } else if (['rejected', 'cancelled', 'refunded'].includes(paymentStatus)) {
+        console.log(`Pagamento para o pedido #${orderId} foi ${paymentStatus}. Cancelando e devolvendo estoque.`);
+        // Se o pagamento falhou ou foi cancelado, chama a RPC para cancelar o pedido e devolver o estoque
+        const { error: rpcError } = await supabase.rpc('cancel_order_and_restock', { order_id_in: parseInt(orderId) });
+        if (rpcError) throw new Error(`Erro ao CANCELAR o pedido #${orderId} via RPC: ${rpcError.message}`);
       }
     }
 
-    return new Response(JSON.stringify({ message: 'Webhook received' }), { status: 200 });
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
   } catch (error) {
-    console.error('Erro no Webhook:', error);
+    console.error('Erro no webhook do Mercado Pago:', error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 });
