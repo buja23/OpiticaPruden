@@ -5,6 +5,11 @@ import { corsHeaders } from '../_shared/cors.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')!;
+const siteUrl = Deno.env.get('SITE_URL');
+
+if (!siteUrl) {
+  throw new Error("A variável de ambiente SITE_URL não está configurada nos secrets da função.");
+}
 
 serve(async (req) => {
   // Trata a requisição CORS preflight
@@ -58,11 +63,10 @@ serve(async (req) => {
         items: mp_items,
         external_reference: order_id.toString(), // Usar o ID do pedido do nosso banco
         back_urls: {
-          success: `${Deno.env.get('SITE_URL') || 'http://localhost:5173'}/success`,
-          failure: `${Deno.env.get('SITE_URL') || 'http://localhost:5173'}/failure`,
+          success: `${siteUrl}/success`,
+          failure: `${siteUrl}/failure`,
         },
         auto_return: 'approved',
-        // A URL do webhook é configurada no painel do MP, mas é bom ter aqui como fallback
         notification_url: `${supabaseUrl}/functions/v1/mercado-pago-webhook`,
       }),
     });
