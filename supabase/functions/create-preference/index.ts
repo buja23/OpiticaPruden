@@ -75,6 +75,8 @@ serve(async (req) => {
 
     // 6. MERCADO PAGO: Cria a Preferência
     // Usamos o external_reference para ligar o Pagamento ao Pedido
+    console.log('🔗 URL de Retorno configurada:', `${siteUrl}/success`);
+    
     const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
