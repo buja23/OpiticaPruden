@@ -8,34 +8,36 @@ const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')!;
 const siteUrl = Deno.env.get('SITE_URL');
 
 serve(async (req) => {
-  // Lida com a requisição CORS preflight. O navegador envia uma requisição OPTIONS
-  // antes da requisição POST para verificar se o servidor permite a conexão.
+  // 1. Preflight CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-  // Validação movida para dentro do handler para garantir que o preflight sempre funcione.
+
+  // 2. Validação de Configuração
   if (!siteUrl) {
-    return new Response(JSON.stringify({ error: "Configuração do servidor incompleta: A variável de ambiente SITE_URL está ausente." }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error("Erro CRÍTICO: SITE_URL não definida nos Secrets.");
+    return new Response(JSON.stringify({ 
+      error: "Configuração do servidor incompleta. Avise o administrador." 
+    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
   try {
     const { items, metadata } = await req.json();
 
     if (!items || items.length === 0) {
-      throw new Error("A lista de itens não pode estar vazia.");
+      throw new Error("Carrinho vazio.");
     }
-    if (!metadata?.user_id || !metadata?.address_id || !metadata?.payer) {
-      throw new Error("Metadados do usuário ou endereço ausentes.");
+    if (!metadata?.user_id || !metadata?.address_id) {
+      throw new Error("Dados do usuário incompletos.");
     }
 
-    // Ordena os itens para garantir um hash consistente
-    const sortedItems = [...items].sort((a, b) => a.id.localeCompare(b.id));
-    // Cria um hash simples do carrinho (ID e quantidade) para detectar mudanças
-    const cartHash = JSON.stringify(sortedItems.map(item => ({ id: item.id, q: item.quantity })));
+    // 3. Cria Hash para evitar duplicidade
+    const sortedItems = [...items].sort((a: any, b: any) => a.id.localeCompare(b.id));
+    const cartHash = JSON.stringify(sortedItems.map((item: any) => ({ id: item.id, q: item.quantity })));
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Chamar a nova RPC que decide se cria um novo pedido ou reutiliza um existente
+    // 4. DATABASE: Cria Pedido e BAIXA ESTOQUE (Reserva)
     const { data: rpcData, error: rpcError } = await supabase
       .rpc('get_or_create_checkout_session', {
         user_id_in: metadata.user_id,
@@ -48,32 +50,31 @@ serve(async (req) => {
       });
 
     if (rpcError) {
-      throw new Error(`Falha ao processar o pedido: ${rpcError.message}`);
+      // Se der erro aqui (ex: "Estoque insuficiente"), devolvemos o erro para o frontend
+      throw new Error(rpcError.message);
     }
 
-    // 2. Verifica a resposta da RPC
-    // 2a. Se um 'preference_id' foi retornado, um pedido idêntico já existia. Reutilize-o.
+    // 5. Verifica se recuperou um link antigo
     if (rpcData.preference_id) {
-      console.log(`Reutilizando sessão de checkout para a preferência: ${rpcData.preference_id}`);
-      // Busca a preferência existente para obter a URL de pagamento (init_point)
+      console.log(`♻️ Recuperando sessão existente: ${rpcData.preference_id}`);
       const prefResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${rpcData.preference_id}`, {
         headers: { 'Authorization': `Bearer ${mpAccessToken}` },
       });
-      if (!prefResponse.ok) throw new Error('Não foi possível recuperar a sessão de pagamento anterior.');
-      const existingPreference = await prefResponse.json();
-      return new Response(JSON.stringify({ init_point: existingPreference.init_point }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
+      
+      if (prefResponse.ok) {
+        const existingPreference = await prefResponse.json();
+        return new Response(JSON.stringify({ init_point: existingPreference.init_point }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+      // Se falhar ao buscar a antiga, continua para criar uma nova...
     }
 
-    // 2b. Se não, um novo pedido foi criado. Prossiga para criar uma nova preferência no MP.
     const { order_id, mp_items } = rpcData;
-    if (!order_id || !mp_items) {
-      throw new Error("A resposta da criação do pedido foi inválida.");
-    }
 
-    // 3. Criar a preferência de pagamento no Mercado Pago
+    // 6. MERCADO PAGO: Cria a Preferência
+    // Usamos o external_reference para ligar o Pagamento ao Pedido
     const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -83,55 +84,51 @@ serve(async (req) => {
       body: JSON.stringify({
         items: mp_items,
         payer: metadata.payer,
-        external_reference: order_id.toString(),
+        external_reference: order_id.toString(), // <--- VITAL PARA O WEBHOOK
         back_urls: {
           success: `${siteUrl}/success`,
           failure: `${siteUrl}/failure`,
+          pending: `${siteUrl}/success` // Pendente enviamos para sucesso com aviso
         },
         auto_return: 'approved',
-        // Habilita todos os métodos de pagamento disponíveis para a sua conta.
         payment_methods: {
-          excluded_payment_types: [], // Array vazio significa que nada é excluído.
-          installments: 12, // Permite parcelamento em até 12x
+          installments: 12,
         },
         notification_url: `${supabaseUrl}/functions/v1/mercado-pago-webhook`,
       }),
     });
 
+    // 7. TRATAMENTO DE ERRO CRÍTICO (Rollback)
     if (!preferenceResponse.ok) {
       const errorBody = await preferenceResponse.text();
-      console.error('Erro ao criar preferência no Mercado Pago:', errorBody);
-      // Se a criação da preferência falhar, cancela o pedido recém-criado.
+      console.error('❌ Erro no Mercado Pago:', errorBody);
+      
+      // IMPORTANTE: Como já reservamos o estoque no passo 4,
+      // se o MP falhar, temos que DEVOLVER o estoque imediatamente.
       await supabase.rpc('cancel_order_and_restock', { order_id_in: order_id });
-      throw new Error('Falha ao comunicar com o Mercado Pago.');
+      
+      throw new Error('Erro ao comunicar com o gateway de pagamento.');
     }
 
     const preference = await preferenceResponse.json();
-    const newPreferenceId = preference.id;
-    const initPoint = preference.init_point;
 
-    // 4. CRUCIAL: Salva o novo ID da preferência no pedido recém-criado
-    const { error: updateError } = await supabase
+    // 8. Salva o ID da preferência no banco (para evitar duplicidade futura)
+    await supabase
       .from('orders')
-      .update({ mp_preference_id: newPreferenceId })
+      .update({ mp_preference_id: preference.id })
       .eq('id', order_id);
 
-    if (updateError) {
-      // Isso é um estado inconsistente. O pagamento foi criado, mas não conseguimos associá-lo.
-      // O webhook ainda deve funcionar, mas é bom logar isso.
-      console.error(`CRÍTICO: Falha ao salvar preference_id '${newPreferenceId}' no pedido '${order_id}'. Erro: ${updateError.message}`);
-    }
-
-    // 5. Retornar a URL de checkout para o cliente
-    return new Response(JSON.stringify({ init_point: initPoint }), {
+    // 9. Sucesso!
+    return new Response(JSON.stringify({ init_point: preference.init_point }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
-  } catch (error) {
-    console.error('Erro na função create-preference:', error);
+
+  } catch (error: any) {
+    console.error('🚨 Erro Geral:', error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 400, // Bad Request
     });
   }
 });
