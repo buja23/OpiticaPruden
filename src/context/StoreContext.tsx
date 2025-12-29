@@ -16,7 +16,7 @@ export interface Product {
   description: string;
   images: string[];
   stock: number;
-  price: number;
+  priceSale: number;
   priceOriginal: number;
 }
 
@@ -94,7 +94,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
           description: dbProduct.description || '',
           images: dbProduct.images || [],
           stock: dbProduct.stock ?? 0,
-          price: dbProduct.price ?? 0,
+          priceSale: dbProduct.price ?? 0,
           priceOriginal: dbProduct.price_original ?? dbProduct.price ?? 0,
         }));
         setAllProducts(transformedProducts);
@@ -133,17 +133,17 @@ export function StoreProvider({ children }: StoreProviderProps) {
     // 2. Filtrar por faixa de preço
     filtered = filtered.filter(
       (p) =>
-        p.price >= filters.priceRange.min &&
-        p.price <= filters.priceRange.max
+        p.priceSale >= filters.priceRange.min &&
+        p.priceSale <= filters.priceRange.max
     );
 
     // 3. Ordenar
     switch (filters.sortBy) {
       case 'price-asc':
-        filtered.sort((a, b) => a.price - b.price);
+        filtered.sort((a, b) => a.priceSale - b.priceSale);
         break;
       case 'price-desc':
-        filtered.sort((a, b) => b.price - a.price);
+        filtered.sort((a, b) => b.priceSale - a.priceSale);
         break;
       case 'newest':
       default:
@@ -213,7 +213,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
     if (allProducts.length === 0) {
       return { min: 0, max: 1000 }; // Fallback
     }
-    const prices = allProducts.map((p) => p.price);
+    const prices = allProducts.map((p) => p.priceSale);
     return {
       min: Math.floor(Math.min(...prices)),
       max: Math.ceil(Math.max(...prices)),
@@ -228,7 +228,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
   // Calcula o valor total do carrinho.
   const cartTotal = useMemo(() => {
     return cartItems.reduce(
-      (total, item) => total + item.price * item.quantity,
+      (total, item) => total + item.priceSale * item.quantity,
       0
     );
   }, [cartItems]);

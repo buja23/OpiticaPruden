@@ -127,7 +127,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             description: item.description || 'Produto sem descrição',
             picture_url: item.images[0] || '',
             quantity: item.quantity,
-            unit_price: item.price,
+            unit_price: item.priceSale,
           })),
           metadata: {
             user_id: user.id,
@@ -207,9 +207,9 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     <p className="text-sm text-gray-600 mb-2">
                       Quantidade: {item.quantity}
                     </p>
-                    {typeof item.price === 'number' ? (
+                    {typeof item.priceSale === 'number' ? (
                       <p className="text-lg font-bold text-slate-800">
-                        {formatCurrency(item.price * item.quantity)}
+                        {formatCurrency(item.priceSale * item.quantity)}
                       </p>
                     ) : (
                       <p className="text-sm font-bold text-red-500">
