@@ -1,63 +1,75 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 serve(async (req) => {
-  if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
-  }
-
   try {
-    const notification = await req.json();
-    console.log('Webhook do Mercado Pago recebido:', notification);
+    const url = new URL(req.url);
+    // O Mercado Pago manda o ID do pagamento na URL (?id=...) ou no corpo (data.id)
+    // Vamos ler o corpo primeiro
+    const body = await req.json().catch(() => ({}));
+    
+    // Identifica o ID do pagamento e o Tópico
+    const paymentId = body.data?.id || url.searchParams.get("data.id") || url.searchParams.get("id");
+    const type = body.type || url.searchParams.get("type");
 
-    if (notification.type === 'payment' && notification.data?.id) {
-      const paymentId = notification.data.id;
-      console.log(`Processando notificação para o pagamento ID: ${paymentId}`);
+    // Só nos interessa se for atualização de pagamento
+    if (type === "payment" && paymentId) {
+      console.log(`🔔 Recebido aviso de pagamento: ${paymentId}`);
 
-      // Busca os detalhes do pagamento na API do Mercado Pago
+      // 1. Consultar a API do Mercado Pago para confirmar o status real
+      // (Nunca confie apenas no que vem no body, consulte a fonte oficial)
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
-          'Authorization': `Bearer ${mpAccessToken}`,
+          "Authorization": `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
         },
       });
 
       if (!mpResponse.ok) {
-        throw new Error(`Erro ao buscar dados do pagamento no MP: ${mpResponse.statusText}`);
+        throw new Error("Erro ao consultar Mercado Pago");
       }
 
-      const payment = await mpResponse.json();
-      const orderId = payment.external_reference;
-      const paymentStatus = payment.status; // ex: "approved", "rejected"
+      const paymentData = await mpResponse.json();
+      
+      // 2. Extrair informações cruciais
+      const status = paymentData.status; // approved, pending, rejected
+      const externalReference = paymentData.external_reference; // AQUI DEVE ESTAR O ID DO SEU PEDIDO (orders.id)
 
-      if (!orderId) {
-        throw new Error(`ID do pedido (external_reference) não encontrado no pagamento ${paymentId}`);
-      }
+      console.log(`📦 Pedido ID: ${externalReference} | Status MP: ${status}`);
 
-      if (paymentStatus === 'approved') {
-        console.log(`Atualizando pedido #${orderId} para o status: ${paymentStatus}`);
-        // Apenas atualiza o status e adiciona o ID do pagamento do MP
+      if (externalReference) {
+        // 3. Atualizar o status no Banco de Dados
+        let newStatus = 'pending';
+        if (status === 'approved') newStatus = 'paid';
+        if (status === 'rejected' || status === 'cancelled') newStatus = 'cancelled';
+        if (status === 'in_process') newStatus = 'pending';
+
         const { error } = await supabase
-          .from('orders')
-          .update({ status: paymentStatus, mercado_pago_payment_id: paymentId.toString() })
-          .eq('id', parseInt(orderId));
-        if (error) throw new Error(`Erro ao ATUALIZAR o pedido #${orderId}: ${error.message}`);
-      } else if (['rejected', 'cancelled', 'refunded'].includes(paymentStatus)) {
-        console.log(`Pagamento para o pedido #${orderId} foi ${paymentStatus}. Cancelando e devolvendo estoque.`);
-        // Se o pagamento falhou ou foi cancelado, chama a RPC para cancelar o pedido e devolver o estoque
-        const { error: rpcError } = await supabase.rpc('cancel_order_and_restock', { order_id_in: parseInt(orderId) });
-        if (rpcError) throw new Error(`Erro ao CANCELAR o pedido #${orderId} via RPC: ${rpcError.message}`);
+          .from("orders")
+          .update({ 
+            status: newStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", externalReference); // Atualiza pelo ID do pedido
+
+        if (error) {
+          console.error("❌ Erro ao atualizar pedido no Supabase:", error);
+          return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+        }
+        
+        console.log("✅ Pedido atualizado com sucesso!");
       }
     }
 
     return new Response(JSON.stringify({ received: true }), { status: 200 });
+
   } catch (error) {
-    console.error('Erro no webhook do Mercado Pago:', error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Erro no Webhook:", error);
+    return new Response(JSON.stringify({ error: error.message }), { status: 400 });
   }
 });
