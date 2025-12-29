@@ -93,9 +93,9 @@ export function StoreProvider({ children }: StoreProviderProps) {
           name: dbProduct.name,
           description: dbProduct.description || '',
           images: dbProduct.images || [],
-          stock: dbProduct.stock,
-          price: dbProduct.price,
-          priceOriginal: dbProduct.price_original || dbProduct.price,
+          stock: dbProduct.stock ?? 0,
+          price: dbProduct.price ?? 0,
+          priceOriginal: dbProduct.price_original ?? dbProduct.price ?? 0,
         }));
         setAllProducts(transformedProducts);
       }
