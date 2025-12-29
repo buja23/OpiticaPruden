@@ -245,7 +245,7 @@ export default function Profile() {
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <span className="text-sm text-gray-500">Pedido #{order.id}</span>
-                              <p className="font-bold text-lg">R$ {(order.total_amount || 0).toFixed(2).replace('.', ',')}</p>
+                              <p className="font-bold text-lg">R$ {(order.total_amount ?? 0).toFixed(2).replace('.', ',')}</p>
                             </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{statusMap[order.status] || order.status}</span>
                           </div>
@@ -255,7 +255,7 @@ export default function Profile() {
                                 <img src={item.products?.images[0]} alt={item.products?.name} className="w-10 h-10 rounded-md object-cover bg-gray-100" />
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-800">{item.products?.name || 'Produto indisponível'}</p>
-                                  <p className="text-gray-500">{item.quantity} x R$ {(item.unit_price || 0).toFixed(2).replace('.', ',')}</p>
+                                  <p className="text-gray-500">{item.quantity} x R$ {(item.unit_price ?? 0).toFixed(2).replace('.', ',')}</p>
                                 </div>
                               </div>
                             ))}

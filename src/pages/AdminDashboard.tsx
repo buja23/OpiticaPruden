@@ -14,7 +14,7 @@ export default function AdminDashboard() {
 
   const lowStockCount = products.filter((p) => p.stock < 3).length;
   const totalValue = products.reduce(
-    (sum, p) => sum + (p.price || 0) * p.stock,
+    (sum, p) => sum + (p.price || 0) * (p.stock || 0),
     0
   );
 
