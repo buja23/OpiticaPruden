@@ -28,31 +28,46 @@ serve(async (req) => {
       throw new Error("Metadados do usuário ou endereço ausentes.");
     }
 
+    // Ordena os itens para garantir um hash consistente
+    const sortedItems = [...items].sort((a, b) => a.id.localeCompare(b.id));
+    // Cria um hash simples do carrinho (ID e quantidade) para detectar mudanças
+    const cartHash = JSON.stringify(sortedItems.map(item => ({ id: item.id, q: item.quantity })));
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Chamar a RPC para criar o pedido e decrementar o estoque de forma segura
+    // 1. Chamar a nova RPC que decide se cria um novo pedido ou reutiliza um existente
     const { data: rpcData, error: rpcError } = await supabase
-      .rpc('create_order_and_decrement_stock', {
+      .rpc('get_or_create_checkout_session', {
         user_id_in: metadata.user_id,
         address_id_in: metadata.address_id,
-        // Passamos apenas ID e quantidade para a RPC, que buscará o preço no DB
         items_in: items.map((item: any) => ({
-          id: parseInt(item.id, 10), // CONVERTE o ID de texto para número
+          id: parseInt(item.id, 10),
           quantity: item.quantity
-        }))
+        })),
+        cart_hash_in: cartHash
       });
 
     if (rpcError) {
-      // Se a RPC falhar (ex: estoque insuficiente), o erro será lançado aqui
-      throw new Error(`Falha ao criar o pedido: ${rpcError.message}`);
+      throw new Error(`Falha ao processar o pedido: ${rpcError.message}`);
     }
 
+    // 2. Verifica a resposta da RPC
+    // 2a. Se um 'preference_id' foi retornado, um pedido idêntico já existia. Reutilize-o.
+    if (rpcData.preference_id) {
+      console.log(`Reutilizando preferência de pagamento existente: ${rpcData.preference_id}`);
+      return new Response(JSON.stringify({ id: rpcData.preference_id }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
+
+    // 2b. Se não, um novo pedido foi criado. Prossiga para criar uma nova preferência no MP.
     const { order_id, mp_items } = rpcData;
     if (!order_id || !mp_items) {
       throw new Error("A resposta da criação do pedido foi inválida.");
     }
 
-    // 2. Criar a preferência de pagamento no Mercado Pago
+    // 3. Criar a preferência de pagamento no Mercado Pago
     const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -60,9 +75,8 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // Usando o payload de itens seguro retornado pela função do banco de dados
         items: mp_items,
-        external_reference: order_id.toString(), // Usar o ID do pedido do nosso banco
+        external_reference: order_id.toString(),
         back_urls: {
           success: `${siteUrl}/success`,
           failure: `${siteUrl}/failure`,
@@ -75,15 +89,28 @@ serve(async (req) => {
     if (!preferenceResponse.ok) {
       const errorBody = await preferenceResponse.text();
       console.error('Erro ao criar preferência no Mercado Pago:', errorBody);
-      // Se a criação da preferência falhar, precisamos reverter o pedido e o estoque.
+      // Se a criação da preferência falhar, cancela o pedido recém-criado.
       await supabase.rpc('cancel_order_and_restock', { order_id_in: order_id });
       throw new Error('Falha ao comunicar com o Mercado Pago.');
     }
 
     const preference = await preferenceResponse.json();
+    const newPreferenceId = preference.id;
 
-    // 3. Retornar o ID da preferência para o cliente
-    return new Response(JSON.stringify({ id: preference.id }), {
+    // 4. CRUCIAL: Salva o novo ID da preferência no pedido recém-criado
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({ mp_preference_id: newPreferenceId })
+      .eq('id', order_id);
+
+    if (updateError) {
+      // Isso é um estado inconsistente. O pagamento foi criado, mas não conseguimos associá-lo.
+      // O webhook ainda deve funcionar, mas é bom logar isso.
+      console.error(`CRÍTICO: Falha ao salvar preference_id '${newPreferenceId}' no pedido '${order_id}'. Erro: ${updateError.message}`);
+    }
+
+    // 5. Retornar o ID da nova preferência para o cliente
+    return new Response(JSON.stringify({ id: newPreferenceId }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

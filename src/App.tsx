@@ -12,6 +12,7 @@ import ProtectedLayout from './components/ProtectedLayout';
 import SuccessPage from './pages/SuccessPage';
 import FailurePage from './pages/FailurePage';
 import AuthNotificationPage from './pages/AuthNotificationPage';
+import { Toaster } from 'react-hot-toast';
 
 // Componente para proteger rotas privadas
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -61,32 +62,28 @@ function AdminRoute({ children }: { children: JSX.Element }) {
 function App() {
   return (
     <div className="min-h-screen bg-gray-100">
+      <Toaster position="top-center" reverseOrder={false} />
       <Routes>
-        {/* Rotas de Autenticação (só para usuários não logados) */}
+        {/* Rotas sem o layout principal (ex: login, register, páginas de status) */}
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/auth-notification" element={<AuthNotificationPage />} />
-
-        {/* Rotas Públicas Principais com Layout */}
-        <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/product/:id" element={<ProductDetails />} />
-        </Route>
-
-        {/* Rotas de Retorno de Pagamento (públicas) */}
         <Route path="/success" element={<SuccessPage />} />
         <Route path="/failure" element={<FailurePage />} />
         
-        {/* Rotas Protegidas que exigem login */}
-        <Route element={<ProtectedRoute><ProtectedLayout /></ProtectedRoute>}>
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/update-password" element={<UpdatePassword />} />
-        </Route>
-
-        {/* Rotas de Admin */}
-        <Route element={<AdminRoute><ProtectedLayout /></AdminRoute>}>
-          <Route path="/admin/inventory" element={<AdminDashboard />} />
-          <Route path="/admin/sales" element={<AdminSales />} />
+        {/* Rotas que compartilham o layout principal (cabeçalho, rodapé, etc.) */}
+        <Route element={<ProtectedLayout />}>
+          {/* Rotas públicas */}
+          <Route path="/" element={<Home />} />
+          <Route path="/product/:id" element={<ProductDetails />} />
+          
+          {/* Rotas que exigem login */}
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/update-password" element={<ProtectedRoute><UpdatePassword /></ProtectedRoute>} />
+          
+          {/* Rotas que exigem ser admin */}
+          <Route path="/admin/inventory" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+          <Route path="/admin/sales" element={<AdminRoute><AdminSales /></AdminRoute>} />
         </Route>
       </Routes>
     </div>

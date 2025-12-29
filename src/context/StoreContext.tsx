@@ -7,6 +7,9 @@ import {
   useMemo,
 } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+import { toast } from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 
 // 1. Defina o tipo Product para corresponder à sua tabela Supabase
 export interface Product {
@@ -40,6 +43,7 @@ export interface FilterState {
 interface StoreContextType {
   products: Product[];
   allProducts: Product[];
+  isCartLoading: boolean;
   isLoading: boolean;
   addToCart: (productId: number) => void;
   removeFromCart: (productId: number) => void;
@@ -49,6 +53,7 @@ interface StoreContextType {
   cartItems: CartProduct[];
   cartTotal: number;
   filters: FilterState;
+  fetchProducts: () => Promise<void>;
   updateFilters: (newFilters: Partial<FilterState>) => void;
   priceBounds: { min: number; max: number };
 }
@@ -62,12 +67,14 @@ interface StoreProviderProps {
 }
 
 export function StoreProvider({ children }: StoreProviderProps) {
+  const { user } = useAuth();
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCartLoading, setIsCartLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [filters, setFilters] = useState<FilterState>({
     searchText: '',
-    priceRange: { min: 0, max: Infinity },
+    priceRange: { min: 0, max: 99999 },
     sortBy: 'newest',
   });
 
@@ -110,6 +117,32 @@ export function StoreProvider({ children }: StoreProviderProps) {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  // Efeito para buscar/limpar o carrinho do banco de dados baseado na sessão do usuário
+  useEffect(() => {
+    const handleUserSessionCart = async () => {
+      if (user) {
+        setIsCartLoading(true);
+        const { data, error } = await supabase
+          .from('user_carts')
+          .select('product_id, quantity')
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Erro ao buscar carrinho do usuário:', error);
+        } else {
+          setCart(data.map(item => ({ productId: item.product_id, quantity: item.quantity })));
+        }
+        setIsCartLoading(false);
+      } else {
+        // Se o usuário deslogar, limpa o carrinho do estado local
+        setCart([]);
+        setIsCartLoading(false);
+      }
+    };
+
+    handleUserSessionCart();
+  }, [user]);
 
   // Função para atualizar os filtros de forma segura
   const updateFilters = (newFilters: Partial<FilterState>) => {
@@ -171,32 +204,111 @@ export function StoreProvider({ children }: StoreProviderProps) {
   }, [cart, allProducts]);
 
   // Adiciona um produto ao carrinho ou incrementa sua quantidade.
-  const addToCart = (productId: number) => {
-    setCart((currentCart) => {
-      const existingItem = currentCart.find(
-        (item) => item.productId === productId
+  const addToCart = async (productId: number) => {
+    if (!user) {
+      toast(
+        (t) => (
+          <div className="flex items-center justify-between w-full">
+            <span className="mr-4 text-sm">
+              Você precisa estar logado para adicionar itens.
+            </span>
+            <Link
+              to="/login"
+              onClick={() => toast.dismiss(t.id)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg text-sm whitespace-nowrap"
+            >
+              Fazer Login
+            </Link>
+          </div>
+        ),
+        { icon: '🔒' }
       );
+      return;
+    }
+
+    // Validação de estoque ANTES da atualização otimista
+    const product = allProducts.find((p) => p.id === productId);
+    if (!product) {
+      console.error(`Produto com ID ${productId} não encontrado.`);
+      toast.error('Ocorreu um erro e o produto não foi encontrado.');
+      return;
+    }
+
+    const itemInCart = cart.find((item) => item.productId === productId);
+    const currentQuantityInCart = itemInCart ? itemInCart.quantity : 0;
+
+    // Verifica se a quantidade desejada excede o estoque
+    if (currentQuantityInCart >= product.stock) {
+      toast.error(`Estoque esgotado para "${product.name}".`);
+      return;
+    }
+
+    // Atualização otimista da UI
+    setCart((currentCart) => {
+      const existingItem = currentCart.find((item) => item.productId === productId);
       if (existingItem) {
         return currentCart.map((item) =>
-          item.productId === productId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          item.productId === productId ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
       return [...currentCart, { productId, quantity: 1 }];
     });
+
+    // Sincroniza com o banco de dados usando a RPC
+    const { error } = await supabase.rpc('add_to_cart', {
+      p_product_id: productId,
+      p_quantity_change: 1,
+    });
+
+    if (error) {
+      console.error('Erro ao salvar no carrinho:', error);
+      // Em caso de erro, reverte a UI buscando os dados reais do banco
+      const { data } = await supabase.from('user_carts').select('product_id, quantity').eq('user_id', user.id);
+      toast.error('Não foi possível adicionar ao carrinho.');
+      setCart(data?.map(item => ({ productId: item.product_id, quantity: item.quantity })) || []);
+    }
   };
 
   // Remove um produto completamente do carrinho.
-  const removeFromCart = (productId: number) => {
-    setCart((currentCart) =>
-      currentCart.filter((item) => item.productId !== productId)
-    );
+  const removeFromCart = async (productId: number) => {
+    if (!user) return;
+
+    // Atualização otimista da UI
+    setCart((currentCart) => currentCart.filter((item) => item.productId !== productId));
+
+    // Sincroniza com o banco de dados
+    const { error } = await supabase
+      .from('user_carts')
+      .delete()
+      .match({ user_id: user.id, product_id: productId });
+    
+    if (error) {
+      console.error('Erro ao remover do carrinho:', error);
+      // Reverte em caso de erro
+      const { data } = await supabase.from('user_carts').select('product_id, quantity').eq('user_id', user.id);
+      setCart(data?.map(item => ({ productId: item.product_id, quantity: item.quantity })) || []);
+    }
   };
 
   // Limpa todos os itens do carrinho.
-  const clearCart = () => {
+  const clearCart = async () => {
+    if (!user) return;
+
+    // Atualização otimista da UI
     setCart([]);
+
+    // Sincroniza com o banco de dados
+    const { error } = await supabase
+      .from('user_carts')
+      .delete()
+      .eq('user_id', user.id);
+    
+    if (error) {
+      console.error('Erro ao limpar carrinho:', error);
+      // Reverte em caso de erro
+      const { data } = await supabase.from('user_carts').select('product_id, quantity').eq('user_id', user.id);
+      setCart(data?.map(item => ({ productId: item.product_id, quantity: item.quantity })) || []);
+    }
   };
 
   const updateStock = async (productId: number, newStock: number) => {
@@ -236,6 +348,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
   const value = {
     products, // Lista já filtrada e ordenada para a UI
     allProducts, // Lista completa para cálculos (ex: limites de preço)
+    isCartLoading,
     isLoading,
     addToCart,
     updateStock,
@@ -246,6 +359,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
     cartTotal,
     filters,
     updateFilters,
+    fetchProducts,
     priceBounds,
   };
 
