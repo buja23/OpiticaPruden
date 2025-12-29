@@ -24,7 +24,7 @@ interface Order {
   mercado_pago_payment_id: string;
   order_items: {
     quantity: number;
-    unit_price: number;
+    price: number;
     products: {
       name: string;
       images: string[];
