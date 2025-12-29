@@ -131,7 +131,15 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           })),
           metadata: {
             user_id: user.id,
-            address_id: selectedAddressId // Passa o ID do endereço como texto (UUID)
+            address_id: selectedAddressId, // Passa o ID do endereço como texto (UUID)
+            // Informações do pagador, essenciais para habilitar métodos como PIX.
+            payer: {
+              email: user.email,
+              identification: {
+                type: 'CPF',
+                number: user.user_metadata.cpf.replace(/\D/g, ''), // Envia apenas os números do CPF
+              },
+            },
           }
         }
       });

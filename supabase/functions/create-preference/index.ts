@@ -24,7 +24,7 @@ serve(async (req) => {
     if (!items || items.length === 0) {
       throw new Error("A lista de itens não pode estar vazia.");
     }
-    if (!metadata?.user_id || !metadata?.address_id) {
+    if (!metadata?.user_id || !metadata?.address_id || !metadata?.payer) {
       throw new Error("Metadados do usuário ou endereço ausentes.");
     }
 
@@ -76,12 +76,18 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         items: mp_items,
+        payer: metadata.payer,
         external_reference: order_id.toString(),
         back_urls: {
           success: `${siteUrl}/success`,
           failure: `${siteUrl}/failure`,
         },
         auto_return: 'approved',
+        // Habilita todos os métodos de pagamento disponíveis para a sua conta.
+        payment_methods: {
+          excluded_payment_types: [], // Array vazio significa que nada é excluído.
+          installments: 12, // Permite parcelamento em até 12x
+        },
         notification_url: `${supabaseUrl}/functions/v1/mercado-pago-webhook`,
       }),
     });
