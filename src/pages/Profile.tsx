@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { User, LogOut, Mail, Calendar, Shield, Fingerprint, Users, Package, MapPin, Plus, Trash2, Loader2, Edit, Save } from 'lucide-react';
+// Adicionei CheckCircle e Clock nas importações
+import { User, LogOut, Mail, Calendar, Shield, Fingerprint, Users, Package, MapPin, Plus, Trash2, Loader2, Edit, Save, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Address {
@@ -24,7 +25,7 @@ interface Order {
   mercado_pago_payment_id: string;
   order_items: {
     quantity: number;
-    price: number;
+    price: number; // Confirmado como 'price'
     products: {
       name: string;
       images: string[];
@@ -217,19 +218,9 @@ export default function Profile() {
 
   const formatCpf = (cpf: string | undefined) => {
     if (!cpf) return 'Não informado';
-    // Garante que estamos formatando uma string de 11 dígitos
     const cleanedCpf = cpf.replace(/\D/g, '');
-    if (cleanedCpf.length !== 11) return cpf; // Retorna o original ou limpo se não tiver 11 dígitos
+    if (cleanedCpf.length !== 11) return cpf;
     return cleanedCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  const statusMap: Record<string, string> = {
-    pending: 'Pendente',
-    approved: 'Aprovado',
-    in_process: 'Em análise',
-    rejected: 'Recusado',
-    shipped: 'Enviado',
-    delivered: 'Entregue'
   };
 
   return (
@@ -324,40 +315,129 @@ export default function Profile() {
                 )}
 
                 {activeTab === 'orders' && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {orders.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500"><Package className="h-12 w-12 mx-auto mb-3 opacity-50" /><p>Você ainda não fez nenhum pedido.</p></div>
+                      <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
+                        <div className="bg-gray-50 p-6 rounded-full mb-4">
+                          <Package className="h-10 w-10 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900">Nenhum pedido encontrado</h3>
+                        <p className="text-gray-500 mt-1">Seus pedidos aparecerão aqui após a compra.</p>
+                      </div>
                     ) : (
-                      orders.map((order) => (
-                        <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <span className="text-sm text-gray-500">Pedido #{order.id}</span>
-                              <p className="font-bold text-lg">R$ {(order.total_amount ?? 0).toFixed(2).replace('.', ',')}</p>
-                            </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{statusMap[order.status] || order.status}</span>
-                          </div>
-                          <div className="space-y-3 border-t border-gray-100 pt-3">
-                            {order.order_items.map((item, index) => (
-                              <div key={index} className="flex items-center space-x-3 text-sm">
-                                <img src={item.products?.images[0]} alt={item.products?.name} className="w-10 h-10 rounded-md object-cover bg-gray-100" />
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-800">{item.products?.name || 'Produto indisponível'}</p>
-                                  <p className="text-gray-500">{item.quantity} x R$ {(item.price ?? 0).toFixed(2).replace('.', ',')}</p>
+                      orders.map((order) => {
+                        // Configuração Dinâmica do Status (Visual Senior)
+                        let statusConfig = {
+                          color: 'bg-gray-100 text-gray-800 border-gray-200',
+                          icon: <Clock className="w-4 h-4" />,
+                          label: 'Desconhecido',
+                          message: 'Status não identificado.'
+                        };
+
+                        if (order.status === 'paid' || order.status === 'approved') {
+                          statusConfig = {
+                            color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                            icon: <CheckCircle className="w-5 h-5" />,
+                            label: 'Pagamento Aprovado',
+                            message: 'Tudo certo! Estamos preparando seu pacote para envio. 📦'
+                          };
+                        } else if (order.status === 'pending') {
+                          statusConfig = {
+                            color: 'bg-amber-50 text-amber-700 border-amber-200',
+                            icon: <Clock className="w-5 h-5" />,
+                            label: 'Aguardando Pagamento',
+                            message: 'Pagamento pendente. Finalize para garantirmos seu estoque.'
+                          };
+                        } else if (order.status === 'cancelled') {
+                          statusConfig = {
+                            color: 'bg-red-50 text-red-700 border-red-200',
+                            icon: <Trash2 className="w-4 h-4" />,
+                            label: 'Cancelado',
+                            message: 'Este pedido foi cancelado.'
+                          };
+                        }
+
+                        return (
+                          <div key={order.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                            {/* Cabeçalho do Card */}
+                            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-bold text-gray-900 text-lg">Pedido #{order.id}</span>
+                                  <span className="text-xs text-gray-500 font-mono bg-gray-200 px-2 py-0.5 rounded">
+                                    {new Date(order.created_at).toLocaleDateString('pt-BR')}
+                                  </span>
+                                </div>
+                                {/* Badge de Status Principal */}
+                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-bold border ${statusConfig.color}`}>
+                                  {statusConfig.icon}
+                                  {statusConfig.label}
                                 </div>
                               </div>
-                            ))}
+                              
+                              <div className="text-right">
+                                <p className="text-xs text-gray-500 uppercase tracking-wide">Total do Pedido</p>
+                                <p className="text-2xl font-bold text-slate-900">
+                                  R$ {(order.total_amount ?? 0).toFixed(2).replace('.', ',')}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Barra de Progresso / Mensagem Contextual */}
+                            <div className={`px-6 py-3 flex items-center gap-3 text-sm font-medium ${
+                              order.status === 'paid' || order.status === 'approved' ? 'bg-emerald-50/50 text-emerald-800' : 'bg-gray-50 text-gray-600'
+                            }`}>
+                              <div className={`w-2 h-2 rounded-full ${
+                                 order.status === 'paid' || order.status === 'approved' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
+                              }`} />
+                              {statusConfig.message}
+                            </div>
+
+                            {/* Lista de Itens */}
+                            <div className="p-6">
+                              <div className="space-y-4">
+                                {order.order_items.map((item, index) => (
+                                  <div key={index} className="flex items-center gap-4 group">
+                                    {/* Imagem com fallback */}
+                                    <div className="h-16 w-16 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
+                                      {item.products?.images?.[0] ? (
+                                        <img 
+                                          src={item.products.images[0]} 
+                                          alt={item.products.name} 
+                                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                          <Package className="w-6 h-6" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-gray-900 truncate">
+                                        {item.products?.name || 'Produto indisponível'}
+                                      </p>
+                                      <p className="text-sm text-gray-500">
+                                        Quantidade: <span className="text-gray-900 font-medium">{item.quantity}</span>
+                                      </p>
+                                    </div>
+
+                                    <div className="text-right">
+                                      <p className="font-medium text-gray-900">
+                                        R$ {(item.price ?? 0).toFixed(2).replace('.', ',')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                          <div className="border-t border-gray-100 mt-3 pt-2">
-                            <p className="text-xs text-gray-400 text-right">
-                              {new Date(order.created_at).toLocaleDateString('pt-BR')} às {new Date(order.created_at).toLocaleTimeString('pt-BR')}
-                            </p>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 )}
+
 
                 {activeTab === 'addresses' && (
                   <div>

@@ -16,8 +16,8 @@ serve(async (req) => {
   // 2. Validação de Configuração
   if (!siteUrl) {
     console.error("Erro CRÍTICO: SITE_URL não definida nos Secrets.");
-    return new Response(JSON.stringify({ 
-      error: "Configuração do servidor incompleta. Avise o administrador." 
+    return new Response(JSON.stringify({
+      error: "Configuração do servidor incompleta. Avise o administrador."
     }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
@@ -60,7 +60,7 @@ serve(async (req) => {
       const prefResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${rpcData.preference_id}`, {
         headers: { 'Authorization': `Bearer ${mpAccessToken}` },
       });
-      
+
       if (prefResponse.ok) {
         const existingPreference = await prefResponse.json();
         return new Response(JSON.stringify({ init_point: existingPreference.init_point }), {
@@ -76,7 +76,7 @@ serve(async (req) => {
     // 6. MERCADO PAGO: Cria a Preferência
     // Usamos o external_reference para ligar o Pagamento ao Pedido
     console.log('🔗 URL de Retorno configurada:', `${siteUrl}/success`);
-    
+
     const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -94,7 +94,15 @@ serve(async (req) => {
         },
         auto_return: 'approved',
         payment_methods: {
+          // 1. Não excluímos nada (lista vazia), aceitando Boleto, Cartão, Pix, etc.
+          excluded_payment_methods: [],
+          excluded_payment_types: [],
+
+          // 2. Permitimos parcelamento em até 12x (padrão do mercado)
           installments: 12,
+
+          // 3. Define que, se ninguém escolher nada, o parcelamento padrão é à vista (1x)
+          default_payment_method_id: "pix",
         },
         notification_url: `${supabaseUrl}/functions/v1/mercado-pago-webhook`,
       }),
@@ -104,11 +112,11 @@ serve(async (req) => {
     if (!preferenceResponse.ok) {
       const errorBody = await preferenceResponse.text();
       console.error('❌ Erro no Mercado Pago:', errorBody);
-      
+
       // IMPORTANTE: Como já reservamos o estoque no passo 4,
       // se o MP falhar, temos que DEVOLVER o estoque imediatamente.
       await supabase.rpc('cancel_order_and_restock', { order_id_in: order_id });
-      
+
       throw new Error('Erro ao comunicar com o gateway de pagamento.');
     }
 
