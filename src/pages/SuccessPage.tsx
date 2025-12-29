@@ -4,14 +4,18 @@ import { CheckCircle } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 
 export default function SuccessPage() {
-  const { clearCart } = useStore();
+  const { clearCart, fetchProducts } = useStore();
   const [searchParams] = useSearchParams();
 
-  // Limpa o carrinho assim que o usuário chega na página de sucesso.
-  // O useEffect com array de dependências vazio garante que isso rode apenas uma vez.
+  // Limpa o carrinho e atualiza os produtos para refletir o novo estoque.
+  // Isso é executado apenas uma vez quando a página é montada.
   useEffect(() => {
-    clearCart();
-  }, [clearCart]);
+    const performPostSuccessActions = async () => {
+      await clearCart();
+      await fetchProducts();
+    };
+    performPostSuccessActions();
+  }, [clearCart, fetchProducts]); // Dependências garantem que as funções sejam estáveis
 
   const paymentId = searchParams.get('payment_id');
   const status = searchParams.get('status');

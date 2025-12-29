@@ -140,9 +140,6 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       if (!data?.id) throw new Error("Não foi possível obter o ID de pagamento.");
       
       setPreferenceId(data.id);
-
-      // Atualiza a lista de produtos para refletir o estoque decrementado
-      await fetchProducts();
     } catch (err) {
       console.error('Erro detalhado ao criar preferência de pagamento:', err);
       let displayError = 'Não foi possível iniciar o pagamento. Tente novamente.';
