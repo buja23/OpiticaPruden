@@ -7,14 +7,15 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')!;
 const siteUrl = Deno.env.get('SITE_URL');
 
-if (!siteUrl) {
-  throw new Error("A variável de ambiente SITE_URL não está configurada nos secrets da função.");
-}
-
 serve(async (req) => {
-  // Trata a requisição CORS preflight
-  if (req.method !== 'POST') {
+  // Lida com a requisição CORS preflight. O navegador envia uma requisição OPTIONS
+  // antes da requisição POST para verificar se o servidor permite a conexão.
+  if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+  // Validação movida para dentro do handler para garantir que o preflight sempre funcione.
+  if (!siteUrl) {
+    return new Response(JSON.stringify({ error: "Configuração do servidor incompleta: A variável de ambiente SITE_URL está ausente." }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
   try {

@@ -112,6 +112,12 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         throw new Error("Por favor, selecione um endereço de entrega.");
       }
 
+      // Validação para garantir que todos os itens têm um preço válido antes de prosseguir
+      const invalidItem = cartItems.find(item => typeof item.price !== 'number');
+      if (invalidItem) {
+        throw new Error(`O item "${invalidItem.name}" está com o preço inválido. Por favor, remova-o do carrinho e tente adicionar novamente.`);
+      }
+
       // Invoca a Edge Function segura do Supabase, passando os itens do carrinho
       const { data, error } = await supabase.functions.invoke('create-preference', {
         body: {
@@ -201,9 +207,15 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     <p className="text-sm text-gray-600 mb-2">
                       Quantidade: {item.quantity}
                     </p>
-                    <p className="text-lg font-bold text-slate-800">
-                      {formatCurrency(item.price * item.quantity)}
-                    </p>
+                    {typeof item.price === 'number' ? (
+                      <p className="text-lg font-bold text-slate-800">
+                        {formatCurrency(item.price * item.quantity)}
+                      </p>
+                    ) : (
+                      <p className="text-sm font-bold text-red-500">
+                        Preço indisponível
+                      </p>
+                    )}
                   </div>
                   <button
                     onClick={() => removeFromCart(item.id)}
@@ -273,9 +285,11 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
             <div className="flex justify-between items-center pt-2">
               <span className="text-lg font-semibold text-gray-700">Total:</span>
-              <span className="text-3xl font-bold text-slate-900">
-                {formatCurrency(cartTotal)}
-              </span>
+              {typeof cartTotal === 'number' && !isNaN(cartTotal) ? (
+                <span className="text-3xl font-bold text-slate-900">{formatCurrency(cartTotal)}</span>
+              ) : (
+                <span className="text-xl font-bold text-red-500">Inválido</span>
+              )}
             </div>
             {preferenceId ? (
               <Wallet 
