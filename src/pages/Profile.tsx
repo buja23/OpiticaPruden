@@ -90,7 +90,7 @@ export default function Profile() {
           id, status, total_amount, created_at, mercado_pago_payment_id,
           order_items (
             quantity,
-            unit_price,
+            price,
             products (
               name, images
             )
@@ -343,7 +343,7 @@ export default function Profile() {
                                 <img src={item.products?.images[0]} alt={item.products?.name} className="w-10 h-10 rounded-md object-cover bg-gray-100" />
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-800">{item.products?.name || 'Produto indisponível'}</p>
-                                  <p className="text-gray-500">{item.quantity} x R$ {(item.unit_price ?? 0).toFixed(2).replace('.', ',')}</p>
+                                  <p className="text-gray-500">{item.quantity} x R$ {(item.price ?? 0).toFixed(2).replace('.', ',')}</p>
                                 </div>
                               </div>
                             ))}
