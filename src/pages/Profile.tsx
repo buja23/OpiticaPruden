@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { User, LogOut, Mail, Calendar, Shield, Fingerprint, Users, Package, MapPin, Plus, Trash2, Loader2 } from 'lucide-react';
+import { User, LogOut, Mail, Calendar, Shield, Fingerprint, Users, Package, MapPin, Plus, Trash2, Loader2, Edit, Save } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface Address {
   id: string;
@@ -40,6 +41,12 @@ export default function Profile() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Estados para edição do perfil
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editableName, setEditableName] = useState(user?.user_metadata.full_name || '');
+  const [editableCpf, setEditableCpf] = useState(user?.user_metadata.cpf || '');
 
   // Estado do formulário de endereço
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -142,10 +149,68 @@ export default function Profile() {
     }
   };
 
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    setIsUpdating(true);
+    setErrors({});
+
+    const nameParts = editableName.trim().split(' ').filter(part => part);
+    if (nameParts.length < 2) {
+      setErrors({ profile: 'Por favor, insira seu nome e sobrenome.' });
+      setIsUpdating(false);
+      return;
+    }
+
+    const cleanCpf = editableCpf.replace(/\D/g, '');
+    if (cleanCpf.length !== 11) {
+      setErrors({ profile: 'CPF inválido. Deve conter 11 números.' });
+      setIsUpdating(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          full_name: editableName.trim(),
+          cpf: cleanCpf,
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Perfil atualizado com sucesso!');
+      setIsEditingInfo(false);
+    } catch (error: any) {
+      console.error('Erro ao atualizar perfil:', error);
+      setErrors({ profile: 'Erro ao atualizar o perfil. Tente novamente.' });
+      toast.error('Não foi possível atualizar seu perfil.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const formattedCpf = value
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+      .substring(0, 14);
+    setEditableCpf(formattedCpf);
+  };
+
   const handleDeleteAddress = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este endereço?')) return;
-    const { error } = await supabase.from('addresses').delete().eq('id', id);
-    if (error) console.error('Erro ao excluir:', error); else fetchData();
+    if (window.confirm('Tem certeza que deseja excluir este endereço?')) {
+      const { error } = await supabase.from('addresses').delete().eq('id', id);
+      if (error) {
+        console.error('Erro ao excluir:', error);
+        toast.error('Não foi possível excluir o endereço.');
+      } else {
+        toast.success('Endereço excluído!');
+        fetchData();
+      }
+    }
   };
 
   if (!user) return null;
@@ -207,30 +272,53 @@ export default function Profile() {
             ) : (
               <>
                 {activeTab === 'info' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
-                      <div className="flex items-center space-x-3 mb-2"><User className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Nome Completo</span></div>
-                      <p className="text-gray-900 font-medium ml-8">{user.user_metadata.full_name || 'Não informado'}</p>
+                  <div>
+                    <div className="flex justify-end mb-4">
+                      {!isEditingInfo ? (
+                        <button onClick={() => setIsEditingInfo(true)} className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"><Edit className="h-4 w-4" /><span>Editar Perfil</span></button>
+                      ) : (
+                        <div className="flex space-x-2">
+                          <button onClick={() => setIsEditingInfo(false)} className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 hover:bg-gray-300 text-gray-800">Cancelar</button>
+                          <button onClick={handleUpdateProfile} disabled={isUpdating} className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm disabled:bg-gray-400"><Save className="h-4 w-4" /><span>{isUpdating ? 'Salvando...' : 'Salvar'}</span></button>
+                        </div>
+                      )}
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
-                      <div className="flex items-center space-x-3 mb-2"><Mail className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Email</span></div>
-                      <p className="text-gray-900 font-medium ml-8">{user.email}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
-                      <div className="flex items-center space-x-3 mb-2"><Fingerprint className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">CPF</span></div>
-                      <p className="text-gray-900 font-medium ml-8">{formatCpf(user.user_metadata.cpf)}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
-                      <div className="flex items-center space-x-3 mb-2"><Users className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Sexo</span></div>
-                      <p className="text-gray-900 font-medium ml-8">{user.user_metadata.sexo || 'Não informado'}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
-                      <div className="flex items-center space-x-3 mb-2"><Shield className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">ID do Usuário</span></div>
-                      <p className="text-gray-900 font-medium text-xs ml-8 font-mono truncate" title={user.id}>{user.id}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors">
-                      <div className="flex items-center space-x-3 mb-2"><Calendar className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Membro desde</span></div>
-                      <p className="text-gray-900 font-medium ml-8">{new Date(user.created_at).toLocaleDateString('pt-BR')}</p>
+
+                    {errors.profile && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">{errors.profile}</div>}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="flex items-center space-x-3 mb-2"><User className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Nome Completo</span></div>
+                        {!isEditingInfo ? (
+                          <p className="text-gray-900 font-medium ml-8">{user.user_metadata.full_name || 'Não informado'}</p>
+                        ) : (
+                          <input type="text" value={editableName} onChange={(e) => setEditableName(e.target.value)} className="w-full p-2 border rounded-md ml-8 -mt-2" />
+                        )}
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="flex items-center space-x-3 mb-2"><Mail className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Email</span></div>
+                        <p className="text-gray-900 font-medium ml-8">{user.email}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="flex items-center space-x-3 mb-2"><Fingerprint className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">CPF</span></div>
+                        {!isEditingInfo ? (
+                          <p className="text-gray-900 font-medium ml-8">{formatCpf(user.user_metadata.cpf)}</p>
+                        ) : (
+                          <input type="text" value={editableCpf} onChange={handleCpfChange} maxLength={14} placeholder="000.000.000-00" className="w-full p-2 border rounded-md ml-8 -mt-2" />
+                        )}
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="flex items-center space-x-3 mb-2"><Users className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Sexo</span></div>
+                        <p className="text-gray-900 font-medium ml-8">{user.user_metadata.sexo || 'Não informado'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="flex items-center space-x-3 mb-2"><Shield className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">ID do Usuário</span></div>
+                        <p className="text-gray-900 font-medium text-xs ml-8 font-mono truncate" title={user.id}>{user.id}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="flex items-center space-x-3 mb-2"><Calendar className="h-5 w-5 text-blue-500" /><span className="text-sm font-medium text-gray-500">Membro desde</span></div>
+                        <p className="text-gray-900 font-medium ml-8">{new Date(user.created_at).toLocaleDateString('pt-BR')}</p>
+                      </div>
                     </div>
                   </div>
                 )}

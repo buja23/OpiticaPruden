@@ -21,7 +21,7 @@ interface Address {
 }
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { cartItems, removeFromCart, cartTotal, fetchProducts } = useStore();
+  const { cart, cartItems, removeFromCart, cartTotal } = useStore();
   const { user } = useAuth();
   const [preferenceId, setPreferenceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +54,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   // Isso garante que o usuário sempre pague o valor correto.
   useEffect(() => {
     setPreferenceId(null);
-  }, [cartItems]);
+  }, [cart]);
 
   // Busca os endereços do usuário quando o carrinho é aberto
   useEffect(() => {
@@ -112,6 +112,24 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         throw new Error("Por favor, selecione um endereço de entrega.");
       }
 
+      // Validação de dados do usuário para o pagamento
+      const fullName = user.user_metadata?.full_name || '';
+      const cpf = user.user_metadata?.cpf || '';
+
+      if (!cpf || !fullName) {
+        throw new Error("Para continuar, por favor, complete seu Nome Completo e CPF na página de perfil.");
+      }
+
+      // Prepara os dados do pagador de forma segura
+      const nameParts = fullName.trim().split(' ').filter(part => part);
+      const firstName = nameParts.shift() || '';
+      const lastName = nameParts.join(' ') || '';
+      const cleanCpf = cpf.replace(/\D/g, '');
+
+      if (!firstName || !lastName) {
+        throw new Error("Seu nome completo deve conter pelo menos um nome e um sobrenome. Por favor, atualize seu perfil.");
+      }
+
       // Validação para garantir que todos os itens têm um preço válido antes de prosseguir
       const invalidItem = cartItems.find(item => typeof item.priceSale !== 'number');
       if (invalidItem) {
@@ -134,10 +152,12 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             address_id: selectedAddressId, // Passa o ID do endereço como texto (UUID)
             // Informações do pagador, essenciais para habilitar métodos como PIX.
             payer: {
+              first_name: firstName,
+              last_name: lastName,
               email: user.email,
               identification: {
                 type: 'CPF',
-                number: user.user_metadata.cpf.replace(/\D/g, ''), // Envia apenas os números do CPF
+                number: cleanCpf, // Envia apenas os números do CPF
               },
             },
           }

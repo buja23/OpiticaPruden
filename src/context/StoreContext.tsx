@@ -47,6 +47,7 @@ interface StoreContextType {
   isLoading: boolean;
   addToCart: (productId: number) => void;
   removeFromCart: (productId: number) => void;
+  cart: CartItem[]; // Expor o carrinho bruto
   clearCart: () => void;
   updateStock: (productId: number, newStock: number) => void;
   cartItemCount: number;
@@ -352,6 +353,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
     isLoading,
     addToCart,
     updateStock,
+    cart,
     removeFromCart,
     clearCart,
     cartItemCount,
