@@ -11,7 +11,8 @@ import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 
-// 1. Defina o tipo Product para corresponder à sua tabela Supabase
+// 1. Defina o tipo Product para corresponder ao Front-end
+// Note que aqui mantemos os nomes que o Front já usa (camelCase)
 export interface Product {
   id: number;
   created_at: string;
@@ -28,7 +29,6 @@ export interface CartItem {
   quantity: number;
 }
 
-// Combina o tipo Product com a quantidade, para uso na UI
 export type CartProduct = Product & {
   quantity: number;
 };
@@ -39,7 +39,6 @@ export interface FilterState {
   sortBy: 'newest' | 'price-asc' | 'price-desc';
 }
 
-// 2. Defina a forma do valor do seu contexto
 interface StoreContextType {
   products: Product[];
   allProducts: Product[];
@@ -47,7 +46,7 @@ interface StoreContextType {
   isLoading: boolean;
   addToCart: (productId: number) => void;
   removeFromCart: (productId: number) => void;
-  cart: CartItem[]; // Expor o carrinho bruto
+  cart: CartItem[];
   clearCart: () => void;
   updateStock: (productId: number, newStock: number) => void;
   cartItemCount: number;
@@ -59,10 +58,8 @@ interface StoreContextType {
   priceBounds: { min: number; max: number };
 }
 
-// 3. Crie o contexto com um valor padrão
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// 4. Crie o componente Provider
 interface StoreProviderProps {
   children: ReactNode;
 }
@@ -79,14 +76,14 @@ export function StoreProvider({ children }: StoreProviderProps) {
     sortBy: 'newest',
   });
 
-  // Função para buscar produtos do Supabase
+  // --- 1. FUNÇÃO DE BUSCA COM ADAPTER (A Mágica) ---
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .order('created_at', { ascending: false }); // Ordena para mostrar os mais novos primeiro
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Erro ao buscar produtos:', error);
@@ -94,16 +91,22 @@ export function StoreProvider({ children }: StoreProviderProps) {
       }
 
       if (data) {
-        // Mapeamento explícito para garantir que o objeto do produto corresponda exatamente à interface Product.
+        // Aqui traduzimos do "Snake_Case do Banco" para "camelCase do React"
         const transformedProducts: Product[] = data.map((dbProduct) => ({
           id: dbProduct.id,
           created_at: dbProduct.created_at,
           name: dbProduct.name,
           description: dbProduct.description || '',
           images: dbProduct.images || [],
-          stock: dbProduct.stock ?? 0,
-          priceSale: dbProduct.price ?? 0,
-          priceOriginal: dbProduct.price_original ?? dbProduct.price ?? 0,
+          
+          // Adapter: Banco (stock_quantity) -> Front (stock)
+          stock: dbProduct.stock_quantity ?? dbProduct.stock ?? 0,
+          
+          // Adapter: Banco (price_sale) -> Front (priceSale)
+          priceSale: dbProduct.price_sale ?? dbProduct.price ?? 0,
+          
+          // Adapter: Banco (price_original) -> Front (priceOriginal)
+          priceOriginal: dbProduct.price_original ?? 0,
         }));
         setAllProducts(transformedProducts);
       }
@@ -114,12 +117,14 @@ export function StoreProvider({ children }: StoreProviderProps) {
     }
   };
 
-  // Busca os produtos quando o provedor é montado
+  // --- 2. HOOKS (Fora da função fetchProducts!) ---
+  
+  // Busca inicial
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  // Efeito para buscar/limpar o carrinho do banco de dados baseado na sessão do usuário
+  // Gerenciamento do Carrinho (Sessão do Usuário)
   useEffect(() => {
     const handleUserSessionCart = async () => {
       if (user) {
@@ -136,7 +141,6 @@ export function StoreProvider({ children }: StoreProviderProps) {
         }
         setIsCartLoading(false);
       } else {
-        // Se o usuário deslogar, limpa o carrinho do estado local
         setCart([]);
         setIsCartLoading(false);
       }
@@ -145,16 +149,15 @@ export function StoreProvider({ children }: StoreProviderProps) {
     handleUserSessionCart();
   }, [user]);
 
-  // Função para atualizar os filtros de forma segura
+  // --- 3. FUNÇÕES AUXILIARES ---
+
   const updateFilters = (newFilters: Partial<FilterState>) => {
     setFilters((prevFilters) => ({ ...prevFilters, ...newFilters }));
   };
 
-  // Lógica de filtragem e ordenação otimizada com useMemo
   const products = useMemo(() => {
     let filtered = [...allProducts];
 
-    // 1. Filtrar por texto (nome e descrição)
     if (filters.searchText) {
       const lowercasedText = filters.searchText.toLowerCase();
       filtered = filtered.filter(
@@ -164,14 +167,12 @@ export function StoreProvider({ children }: StoreProviderProps) {
       );
     }
 
-    // 2. Filtrar por faixa de preço
     filtered = filtered.filter(
       (p) =>
         p.priceSale >= filters.priceRange.min &&
         p.priceSale <= filters.priceRange.max
     );
 
-    // 3. Ordenar
     switch (filters.sortBy) {
       case 'price-asc':
         filtered.sort((a, b) => a.priceSale - b.priceSale);
@@ -191,7 +192,6 @@ export function StoreProvider({ children }: StoreProviderProps) {
     return filtered;
   }, [allProducts, filters]);
 
-  // Deriva a lista de produtos no carrinho (com detalhes completos) a partir do estado do carrinho.
   const cartItems: CartProduct[] = useMemo(() => {
     return cart
       .map((cartItem) => {
@@ -204,7 +204,6 @@ export function StoreProvider({ children }: StoreProviderProps) {
       .filter((item): item is CartProduct => item !== null);
   }, [cart, allProducts]);
 
-  // Adiciona um produto ao carrinho ou incrementa sua quantidade.
   const addToCart = async (productId: number) => {
     if (!user) {
       toast(
@@ -227,24 +226,21 @@ export function StoreProvider({ children }: StoreProviderProps) {
       return;
     }
 
-    // Validação de estoque ANTES da atualização otimista
     const product = allProducts.find((p) => p.id === productId);
     if (!product) {
-      console.error(`Produto com ID ${productId} não encontrado.`);
-      toast.error('Ocorreu um erro e o produto não foi encontrado.');
+      toast.error('Produto não encontrado.');
       return;
     }
 
     const itemInCart = cart.find((item) => item.productId === productId);
     const currentQuantityInCart = itemInCart ? itemInCart.quantity : 0;
 
-    // Verifica se a quantidade desejada excede o estoque
     if (currentQuantityInCart >= product.stock) {
       toast.error(`Estoque esgotado para "${product.name}".`);
       return;
     }
 
-    // Atualização otimista da UI
+    // Atualização Otimista
     setCart((currentCart) => {
       const existingItem = currentCart.find((item) => item.productId === productId);
       if (existingItem) {
@@ -255,7 +251,6 @@ export function StoreProvider({ children }: StoreProviderProps) {
       return [...currentCart, { productId, quantity: 1 }];
     });
 
-    // Sincroniza com o banco de dados usando a RPC
     const { error } = await supabase.rpc('add_to_cart', {
       p_product_id: productId,
       p_quantity_change: 1,
@@ -263,21 +258,17 @@ export function StoreProvider({ children }: StoreProviderProps) {
 
     if (error) {
       console.error('Erro ao salvar no carrinho:', error);
-      // Em caso de erro, reverte a UI buscando os dados reais do banco
       const { data } = await supabase.from('user_carts').select('product_id, quantity').eq('user_id', user.id);
       toast.error('Não foi possível adicionar ao carrinho.');
       setCart(data?.map(item => ({ productId: item.product_id, quantity: item.quantity })) || []);
     }
   };
 
-  // Remove um produto completamente do carrinho.
   const removeFromCart = async (productId: number) => {
     if (!user) return;
 
-    // Atualização otimista da UI
     setCart((currentCart) => currentCart.filter((item) => item.productId !== productId));
 
-    // Sincroniza com o banco de dados
     const { error } = await supabase
       .from('user_carts')
       .delete()
@@ -285,20 +276,16 @@ export function StoreProvider({ children }: StoreProviderProps) {
     
     if (error) {
       console.error('Erro ao remover do carrinho:', error);
-      // Reverte em caso de erro
       const { data } = await supabase.from('user_carts').select('product_id, quantity').eq('user_id', user.id);
       setCart(data?.map(item => ({ productId: item.product_id, quantity: item.quantity })) || []);
     }
   };
 
-  // Limpa todos os itens do carrinho.
   const clearCart = async () => {
     if (!user) return;
 
-    // Atualização otimista da UI
     setCart([]);
 
-    // Sincroniza com o banco de dados
     const { error } = await supabase
       .from('user_carts')
       .delete()
@@ -306,25 +293,30 @@ export function StoreProvider({ children }: StoreProviderProps) {
     
     if (error) {
       console.error('Erro ao limpar carrinho:', error);
-      // Reverte em caso de erro
       const { data } = await supabase.from('user_carts').select('product_id, quantity').eq('user_id', user.id);
       setCart(data?.map(item => ({ productId: item.product_id, quantity: item.quantity })) || []);
     }
   };
 
+  // --- 4. ATUALIZAÇÃO DE ESTOQUE (Corrigido para stock_quantity) ---
   const updateStock = async (productId: number, newStock: number) => {
     setAllProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, stock: newStock } : p)));
-    const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', productId);
+    
+    // Agora salvamos na coluna certa do banco: stock_quantity
+    const { error } = await supabase
+      .from('products')
+      .update({ stock_quantity: newStock })
+      .eq('id', productId);
+      
     if (error) {
       console.error('Erro ao atualizar o estoque:', error);
-      fetchProducts(); // Reverte se a atualização falhar
+      fetchProducts(); // Reverte em caso de erro
     }
   };
 
-  // Calcula os limites de preço (min/max) para usar em um slider de filtro
   const priceBounds = useMemo(() => {
     if (allProducts.length === 0) {
-      return { min: 0, max: 1000 }; // Fallback
+      return { min: 0, max: 1000 };
     }
     const prices = allProducts.map((p) => p.priceSale);
     return {
@@ -333,12 +325,10 @@ export function StoreProvider({ children }: StoreProviderProps) {
     };
   }, [allProducts]);
 
-  // Calcula o número total de itens no carrinho (somando as quantidades).
   const cartItemCount = useMemo(() => {
     return cart.reduce((total, item) => total + item.quantity, 0);
   }, [cart]);
 
-  // Calcula o valor total do carrinho.
   const cartTotal = useMemo(() => {
     return cartItems.reduce(
       (total, item) => total + item.priceSale * item.quantity,
@@ -347,8 +337,8 @@ export function StoreProvider({ children }: StoreProviderProps) {
   }, [cartItems]);
 
   const value = {
-    products, // Lista já filtrada e ordenada para a UI
-    allProducts, // Lista completa para cálculos (ex: limites de preço)
+    products,
+    allProducts,
     isCartLoading,
     isLoading,
     addToCart,
@@ -368,7 +358,6 @@ export function StoreProvider({ children }: StoreProviderProps) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-// 5. Crie um hook customizado para facilitar o uso
 export function useStore() {
   const context = useContext(StoreContext);
   if (context === undefined) {

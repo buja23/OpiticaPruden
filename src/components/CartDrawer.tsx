@@ -17,6 +17,7 @@ interface Address {
   neighborhood: string;
   city: string;
   state: string;
+  zip_code: string;
 }
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
@@ -41,7 +42,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       try {
         const { data, error } = await supabase
           .from('addresses')
-          .select('id, street, number, neighborhood, city, state')
+          .select('id, street, number, neighborhood, city, state, zip_code')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
         
@@ -84,6 +85,11 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
       if (!selectedAddressId) {
         throw new Error("Por favor, selecione um endereço de entrega.");
+      }
+
+      const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
+      if (!selectedAddress) {
+        throw new Error("O endereço selecionado é inválido. Por favor, recarregue a página e tente novamente.");
       }
 
       // Validação de dados do usuário para o pagamento
@@ -132,6 +138,11 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               identification: {
                 type: 'CPF',
                 number: cleanCpf, // Envia apenas os números do CPF
+              },
+              address: {
+                street_name: selectedAddress.street,
+                street_number: selectedAddress.number,
+                zip_code: selectedAddress.zip_code.replace(/\D/g, ''),
               },
             },
           }
