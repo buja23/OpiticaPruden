@@ -113,7 +113,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       }
 
       // Validação para garantir que todos os itens têm um preço válido antes de prosseguir
-      const invalidItem = cartItems.find(item => typeof item.price !== 'number');
+      const invalidItem = cartItems.find(item => typeof item.priceSale !== 'number');
       if (invalidItem) {
         throw new Error(`O item "${invalidItem.name}" está com o preço inválido. Por favor, remova-o do carrinho e tente adicionar novamente.`);
       }
