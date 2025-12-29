@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ShoppingBag, Trash2, Loader2, MapPin } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -23,7 +22,6 @@ interface Address {
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { cart, cartItems, removeFromCart, cartTotal } = useStore();
   const { user } = useAuth();
-  const [preferenceId, setPreferenceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -31,30 +29,6 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [loadingAddresses, setLoadingAddresses] = useState(false);
-
-  // Memoiza as configurações do Mercado Pago para evitar que o componente seja recriado (pisque) em cada renderização
-  const initialization = useMemo(() => ({ preferenceId: preferenceId! }), [preferenceId]);
-  const customization = useMemo(() => ({ texts: { valueProp: 'smart_option' } }), []);
-
-  // Callbacks memoizados para evitar re-renderizações desnecessárias do iframe
-  const handleOnReady = useCallback(() => console.log('Carteira do Mercado Pago carregada e pronta.'), []);
-  const handleOnError = useCallback((error: any) => console.error('Erro interno no componente Wallet:', error), []);
-
-  // Inicializa o SDK do Mercado Pago com a chave pública
-  useEffect(() => {
-    const publicKey = import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY;
-    if (publicKey) {
-      initMercadoPago(publicKey, { locale: 'pt-BR' });
-    } else {
-      console.error('VITE_MERCADOPAGO_PUBLIC_KEY não definida no .env');
-    }
-  }, []);
-
-  // Reseta a preferência de pagamento se o carrinho for alterado.
-  // Isso garante que o usuário sempre pague o valor correto.
-  useEffect(() => {
-    setPreferenceId(null);
-  }, [cart]);
 
   // Busca os endereços do usuário quando o carrinho é aberto
   useEffect(() => {
@@ -165,9 +139,10 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       });
       
       if (error) throw error;
-      if (!data?.id) throw new Error("Não foi possível obter o ID de pagamento.");
+      if (!data?.init_point) throw new Error("Não foi possível obter o link de pagamento.");
       
-      setPreferenceId(data.id);
+      // Redireciona o usuário para a página de pagamento do Mercado Pago
+      window.location.href = data.init_point;
     } catch (err) {
       console.error('Erro detalhado ao criar preferência de pagamento:', err);
       let displayError = 'Não foi possível iniciar o pagamento. Tente novamente.';
@@ -259,8 +234,8 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
         {cartItems.length > 0 && (
           <div className="border-t border-gray-200 p-6 bg-gray-50 space-y-4">
-            {/* Seção de Seleção de Endereço */}
-            {!preferenceId && (
+            {/* Seção de Seleção de Endereço e Checkout */}
+            {(
               <div className="space-y-3">
                 <h3 className="text-lg font-semibold text-gray-800">Endereço de Entrega</h3>
                 
@@ -308,27 +283,16 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
 
-            <div className="flex justify-between items-center pt-2">
-              <span className="text-lg font-semibold text-gray-700">Total:</span>
-              {typeof cartTotal === 'number' && !isNaN(cartTotal) ? (
-                <span className="text-3xl font-bold text-slate-900">{formatCurrency(cartTotal)}</span>
-              ) : (
-                <span className="text-xl font-bold text-red-500">Inválido</span>
-              )}
-            </div>
-            {preferenceId ? (
-              <Wallet 
-                key={preferenceId} // Força o componente a recarregar completamente se o ID mudar
-                initialization={initialization} 
-                customization={customization}
-                onReady={handleOnReady}
-                onError={handleOnError}
-              />
-            ) : (
-              <>
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-lg font-semibold text-gray-700">Total:</span>
+                  {typeof cartTotal === 'number' && !isNaN(cartTotal) ? (
+                    <span className="text-3xl font-bold text-slate-900">{formatCurrency(cartTotal)}</span>
+                  ) : (
+                    <span className="text-xl font-bold text-red-500">Inválido</span>
+                  )}
+                </div>
+                
                 <button
                   onClick={handleCheckout}
                   disabled={isLoading || !user || !selectedAddressId}
@@ -337,7 +301,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                   {isLoading ? 'Processando...' : 'Finalizar Compra'}
                 </button>
                 {error && <p className="text-red-500 text-sm mt-2 text-center">{error}</p>}
-              </>
+              </div>
             )}
           </div>
         )}

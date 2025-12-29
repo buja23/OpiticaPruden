@@ -54,8 +54,14 @@ serve(async (req) => {
     // 2. Verifica a resposta da RPC
     // 2a. Se um 'preference_id' foi retornado, um pedido idêntico já existia. Reutilize-o.
     if (rpcData.preference_id) {
-      console.log(`Reutilizando preferência de pagamento existente: ${rpcData.preference_id}`);
-      return new Response(JSON.stringify({ id: rpcData.preference_id }), {
+      console.log(`Reutilizando sessão de checkout para a preferência: ${rpcData.preference_id}`);
+      // Busca a preferência existente para obter a URL de pagamento (init_point)
+      const prefResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${rpcData.preference_id}`, {
+        headers: { 'Authorization': `Bearer ${mpAccessToken}` },
+      });
+      if (!prefResponse.ok) throw new Error('Não foi possível recuperar a sessão de pagamento anterior.');
+      const existingPreference = await prefResponse.json();
+      return new Response(JSON.stringify({ init_point: existingPreference.init_point }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
@@ -102,6 +108,7 @@ serve(async (req) => {
 
     const preference = await preferenceResponse.json();
     const newPreferenceId = preference.id;
+    const initPoint = preference.init_point;
 
     // 4. CRUCIAL: Salva o novo ID da preferência no pedido recém-criado
     const { error: updateError } = await supabase
@@ -115,8 +122,8 @@ serve(async (req) => {
       console.error(`CRÍTICO: Falha ao salvar preference_id '${newPreferenceId}' no pedido '${order_id}'. Erro: ${updateError.message}`);
     }
 
-    // 5. Retornar o ID da nova preferência para o cliente
-    return new Response(JSON.stringify({ id: newPreferenceId }), {
+    // 5. Retornar a URL de checkout para o cliente
+    return new Response(JSON.stringify({ init_point: initPoint }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
