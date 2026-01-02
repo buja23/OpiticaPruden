@@ -8,7 +8,7 @@ export default function Navbar() {
   const { user } = useAuth();
 
   return (
-    <nav className="sticky top-0 z-50 w-full">
+    <nav className="relative w-full z-50 bg-white shadow-sm">
       {/* 1. Faixa de Topo (igual Kessy/Triton) - Aviso de Frete/Promoção */}
       <div className="bg-slate-100 text-slate-600 text-xs py-2 text-center font-medium tracking-wide">
         FRETE GRÁTIS PARA TODO BRASIL NAS COMPRAS ACIMA DE R$ 299,00

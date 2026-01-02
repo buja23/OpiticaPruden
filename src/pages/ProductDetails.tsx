@@ -1,156 +1,194 @@
-import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ShoppingCart, ArrowLeft, Package } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { useState, useEffect } from 'react';
+import { ShoppingBag, Truck, ShieldCheck, ArrowLeft, Star, Heart, Share2, CreditCard } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ProductDetails() {
-  const { id } = useParams<{ id: string }>();
-  const { allProducts, addToCart, isLoading } = useStore(); // Usar allProducts garante que o produto seja encontrado independente dos filtros.
-  const [selectedImage, setSelectedImage] = useState(0);
-  const product = allProducts.find((p) => p.id === Number(id));
+  const { id } = useParams();
+  const { products, addToCart } = useStore();
+  
+  // Estado para a imagem selecionada na galeria
+  const [selectedImage, setSelectedImage] = useState<string>('');
+  
+  // Encontra o produto
+  const product = products.find((p) => p.id === Number(id));
 
-  // Reseta a imagem selecionada quando o ID do produto muda.
+  // Define a imagem inicial assim que o produto carregar
   useEffect(() => {
-    setSelectedImage(0);
-  }, [id]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-slate-900">
-        Carregando Produto...
-      </div>
-    );
-  }
+    if (product && product.images.length > 0) {
+      setSelectedImage(product.images[0]);
+    }
+  }, [product]);
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Produto Não Encontrado</h2>
-          <Link to="/" className="text-blue-500 hover:text-blue-600">
-            Voltar para o Início
-          </Link>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-slate-800">
+        <h2 className="text-2xl font-['Playfair_Display'] font-bold mb-4">Produto não encontrado</h2>
+        <Link to="/" className="text-[#0A1D56] underline hover:text-blue-800">Voltar para a loja</Link>
       </div>
     );
   }
 
+  const handleAddToCart = () => {
+    addToCart(product.id);
+    toast.success('Adicionado à sacola com sucesso! 👜');
+  };
+
+  // Cálculo de parcelas (Simulação)
+  const installmentValue = (product.priceSale / 12).toFixed(2).replace('.', ',');
+
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Link
-          to="/"
-          className="inline-flex items-center space-x-2 text-gray-600 hover:text-blue-600 mb-8 transition"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Voltar para os Produtos</span>
+    <div className="bg-white min-h-screen pb-20">
+      
+      {/* Breadcrumb / Navegação Topo */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Link to="/" className="inline-flex items-center text-sm text-gray-500 hover:text-[#0A1D56] transition-colors">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Voltar para a coleção
         </Link>
+      </div>
 
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
-            <div className="space-y-4">
-              <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-                {/* Acesso seguro à imagem para evitar erros se não houver imagens */}
-                {product.images && product.images.length > 0 ? (
-                  <img
-                    src={product.images[selectedImage]}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
-                    Sem imagem
-                  </div>
-                )}
-              </div>
-
-              {product.images && product.images.length > 1 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                  {product.images.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImage(index)}
-                    className={`aspect-square rounded-lg overflow-hidden border-2 transition ${
-                      selectedImage === index
-                        ? 'border-blue-500 ring-2 ring-blue-200'
-                        : 'border-gray-200 hover:border-blue-300'
-                    }`}
-                  >
-                    <img
-                      src={image}
-                      alt={`${product.name} view ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                  ))}
-                </div>
-              )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
+          
+          {/* COLUNA ESQUERDA: Galeria de Imagens */}
+          <div className="product-gallery flex flex-col-reverse lg:flex-row gap-4">
+            
+            {/* Lista de Miniaturas (Thumbnails) */}
+            <div className="flex lg:flex-col gap-4 overflow-x-auto lg:overflow-y-auto lg:w-24 lg:h-[600px] py-2 lg:py-0 scrollbar-hide">
+              {product.images.map((img, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedImage(img)}
+                  className={`relative flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                    selectedImage === img ? 'border-[#0A1D56] ring-2 ring-[#0A1D56]/20' : 'border-transparent hover:border-gray-200'
+                  }`}
+                >
+                  <img src={img} alt={`Vista ${index + 1}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
 
+            {/* Imagem Principal Grande */}
+            <div className="flex-1 bg-gray-50 rounded-2xl overflow-hidden relative aspect-w-4 aspect-h-5 lg:aspect-none lg:h-[600px]">
+              <img
+                src={selectedImage || product.images[0]}
+                alt={product.name}
+                className="w-full h-full object-cover object-center"
+              />
+              {/* Botão de Favoritar Flutuante */}
+              <button className="absolute top-4 right-4 p-3 bg-white/90 backdrop-blur rounded-full shadow-sm hover:text-red-500 transition-colors">
+                <Heart className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* COLUNA DIREITA: Informações do Produto (Sticky) */}
+          <div className="mt-10 lg:mt-0 lg:sticky lg:top-24 h-fit">
+            
+            {/* Cabeçalho do Produto */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[#0A1D56] font-bold text-xs tracking-widest uppercase bg-blue-50 px-2 py-1 rounded">
+                  Lançamento 2026
+                </span>
+                
+                {/* Avaliação */}
+                <div className="flex items-center gap-1">
+                  <div className="flex text-amber-400">
+                    <Star className="w-4 h-4 fill-current" />
+                    <Star className="w-4 h-4 fill-current" />
+                    <Star className="w-4 h-4 fill-current" />
+                    <Star className="w-4 h-4 fill-current" />
+                    <Star className="w-4 h-4 fill-current" />
+                  </div>
+                  <span className="text-xs text-gray-400 ml-1">(42 avaliações)</span>
+                </div>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 font-['Playfair_Display'] leading-tight mb-2">
+                {product.name}
+              </h1>
+              <p className="text-gray-500 text-sm">Cód: {product.id}REF2026</p>
+            </div>
+
+            {/* Preço e Parcelamento */}
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 mb-8">
+              <div className="flex items-end gap-3 mb-2">
+                <p className="text-4xl font-bold text-[#0A1D56]">
+                  R$ {product.priceSale.toFixed(2).replace('.', ',')}
+                </p>
+                {product.priceOriginal > product.priceSale && (
+                  <p className="text-lg text-gray-400 line-through mb-1">
+                    R$ {product.priceOriginal.toFixed(2).replace('.', ',')}
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+                <CreditCard className="w-4 h-4 text-[#0A1D56]" />
+                <span>
+                  em até <strong className="text-slate-900">12x de R$ {installmentValue}</strong> sem juros
+                </span>
+              </div>
+              
+              {/* Botão de Compra Principal */}
+              <button
+                onClick={handleAddToCart}
+                className="w-full bg-[#0A1D56] text-white py-4 rounded-lg text-lg font-bold hover:bg-[#152C6F] transition-all transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                ADICIONAR À SACOLA
+              </button>
+
+              <div className="mt-4 text-center">
+                <p className="text-xs text-green-600 font-medium flex items-center justify-center gap-1">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  Estoque disponível - Envio Imediato
+                </p>
+              </div>
+            </div>
+
+            {/* Descrição e Detalhes */}
             <div className="space-y-6">
               <div>
-                <h1 className="text-4xl font-bold text-slate-900 mb-3">
-                  {product.name}
-                </h1>
-                <p className="text-lg text-gray-600 leading-relaxed">
-                  {product.description}
+                <h3 className="font-bold text-slate-900 mb-2 font-['Playfair_Display'] text-lg">Sobre o Produto</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {product.description || 
+                    "Este modelo exclusivo combina design italiano com materiais de alta durabilidade. As lentes possuem proteção UV400 certificada, garantindo conforto visual e segurança. A armação em acetato premium oferece leveza e ajuste perfeito ao rosto."}
                 </p>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-6 space-y-4">
-                <div className="flex items-baseline space-x-3">
-                  <span className="text-5xl font-bold text-slate-900">
-                    R${product.priceSale.toFixed(2).replace('.', ',')}
-                  </span>
-                  {product.priceOriginal > product.priceSale && (
-                    <span className="text-2xl font-medium text-gray-400 line-through">
-                      R${product.priceOriginal.toFixed(2).replace('.', ',')}
-                    </span>
-                  )}
+              {/* Ícones de Confiança (Gatilhos) */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-50 rounded-full text-[#0A1D56]">
+                    <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900">Frete Grátis</h4>
+                    <p className="text-xs text-gray-500">Para todo Brasil</p>
+                  </div>
                 </div>
-              </div>
-
-              <div className="border-t border-b border-gray-200 py-4">
-                <div className="flex items-center space-x-3">
-                  <Package className="h-6 w-6 text-gray-400" />
-                  {product.stock > 0 ? (
-                    <div>
-                      <span className="text-gray-700 font-medium">
-                        {product.stock < 5 ? (
-                          <span className="text-orange-600 font-bold">
-                            Apenas {product.stock} unidades restantes!
-                          </span>
-                        ) : (
-                          <span className="text-green-600">Em Estoque</span>
-                        )}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-red-600 font-bold">Fora de Estoque</span>
-                  )}
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-50 rounded-full text-[#0A1D56]">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900">Garantia Vision</h4>
+                    <p className="text-xs text-gray-500">1 ano contra defeitos</p>
+                  </div>
                 </div>
-              </div>
-
-              <button
-                onClick={() => addToCart(product.id)}
-                disabled={product.stock === 0}
-                className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-5 px-8 rounded-xl flex items-center justify-center space-x-3 transition-all transform hover:scale-105 shadow-xl text-lg"
-              >
-                <ShoppingCart className="h-6 w-6" />
-                <span>{product.stock === 0 ? 'Fora de Estoque' : 'Adicionar ao Carrinho'}</span>
-              </button>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 space-y-2">
-                <h3 className="font-bold text-slate-900">Por que escolher a VisionBlue?</h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li>✓ Materiais de qualidade premium</li>
-                  <li>✓ 1 ano de garantia incluído</li>
-                  <li>✓ Frete grátis para todos os pedidos</li>
-                  <li>✓ Proteção UV400</li>
-                  <li>✓ Política de devolução de 30 dias</li>
-                </ul>
               </div>
             </div>
+
+            {/* Botão Compartilhar */}
+            <button className="mt-8 flex items-center gap-2 text-sm text-gray-400 hover:text-[#0A1D56] transition-colors mx-auto lg:mx-0">
+              <Share2 className="w-4 h-4" />
+              Compartilhar este produto
+            </button>
+
           </div>
         </div>
       </div>
