@@ -129,7 +129,7 @@ export default function ProductDetails() {
               <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
                 <CreditCard className="w-4 h-4 text-[#0A1D56]" />
                 <span>
-                  em até <strong className="text-slate-900">12x de R$ {installmentValue}</strong> sem juros
+                  em até <strong className="text-slate-900">10x de R$ {installmentValue}</strong> sem juros
                 </span>
               </div>
               
@@ -177,7 +177,7 @@ export default function ProductDetails() {
                   </div>
                   <div>
                     <h4 className="font-bold text-sm text-slate-900">Garantia Vision</h4>
-                    <p className="text-xs text-gray-500">1 ano contra defeitos</p>
+                    <p className="text-xs text-gray-500">3 Meses contra defeitos</p>
                   </div>
                 </div>
               </div>
