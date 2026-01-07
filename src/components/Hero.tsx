@@ -43,7 +43,7 @@ export default function Hero() {
           <p className="text-lg font-light mb-8 max-w-md mx-auto lg:mx-0 leading-relaxed
             text-gray-100
             lg:text-gray-500">
-            Design italiano, proteção premium e o conforto que você procura. 
+            Design moderno, proteção premium e o conforto que você procura. 
             Frete grátis para todo o Brasil.
           </p>
           
