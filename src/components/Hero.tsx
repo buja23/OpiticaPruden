@@ -1,5 +1,3 @@
-import { Link } from 'react-router-dom';
-
 export default function Hero() {
   return (
     // Container Principal: Flex no Mobile, Grid no Desktop
@@ -40,32 +38,14 @@ export default function Hero() {
           </h1>
           
           {/* Descrição */}
-          <p className="text-lg font-light mb-8 max-w-md mx-auto lg:mx-0 leading-relaxed
+          <p className="text-lg font-light max-w-md mx-auto lg:mx-0 leading-relaxed
             text-gray-100
             lg:text-gray-500">
-            Design moderno, proteção premium e o conforto que você procura. 
+            Design italiano, proteção premium e o conforto que você procura. 
             Frete grátis para todo o Brasil.
           </p>
           
-          {/* Botões - Clean & Flat */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-            <Link
-              to="/search?category=sun"
-              className="px-8 py-4 rounded-sm font-medium transition-all text-center shadow-lg hover:shadow-xl
-                bg-white text-[#0A1D56] hover:bg-gray-50
-                lg:bg-[#0A1D56] lg:text-white lg:hover:bg-[#152C6F]"
-            >
-              Ver Óculos de Sol
-            </Link>
-            <Link
-              to="/search?category=degree"
-              className="px-8 py-4 rounded-sm font-medium transition-all text-center backdrop-blur-sm
-                border border-white text-white hover:bg-white/10
-                lg:border-[#0A1D56] lg:text-[#0A1D56] lg:hover:bg-blue-50/50"
-            >
-              Armações de Grau
-            </Link>
-          </div>
+          {/* Botões removidos para visual Clean */}
 
         </div>
       </div>
